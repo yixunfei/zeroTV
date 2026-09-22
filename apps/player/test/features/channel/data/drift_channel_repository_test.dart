@@ -84,4 +84,24 @@ void main() {
     await subscriptions.remove('s1');
     expect(await channels.watchAll().first, isEmpty);
   });
+
+  test('watchCountsBySubscription groups counts per subscription', () async {
+    await subscriptions.upsert(
+      const Subscription(
+        id: 's2',
+        name: '源2',
+        kind: SubscriptionKind.remoteUrl,
+        uri: 'https://example.com/b.m3u8',
+      ),
+    );
+    await channels.replaceAll('s1', seedChannels.take(3).toList());
+    await channels.replaceAll('s2', seedChannels.skip(3).toList());
+
+    final counts = await channels.watchCountsBySubscription().first;
+    expect(counts, {'s1': 3, 's2': 1});
+
+    await channels.replaceAll('s1', seedChannels.take(1).toList());
+    final updated = await channels.watchCountsBySubscription().first;
+    expect(updated, {'s1': 1, 's2': 1});
+  });
 }

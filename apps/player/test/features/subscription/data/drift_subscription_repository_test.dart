@@ -59,6 +59,28 @@ void main() {
     expect(restored!.isAtSameMomentAs(t), isTrue);
   });
 
+  test('rename updates only the name', () async {
+    await repo.upsert(sample);
+    final t = DateTime(2026, 9, 22, 8);
+    await repo.markSynced('s1', t);
+    await repo.rename('s1', '新名字');
+    final stored = (await repo.getAll()).single;
+    expect(stored.name, '新名字');
+    expect(stored.enabled, isTrue);
+    expect(stored.lastSyncedAt!.isAtSameMomentAs(t), isTrue);
+  });
+
+  test('setEnabled toggles only the flag', () async {
+    await repo.upsert(sample);
+    await repo.setEnabled('s1', enabled: false);
+    var stored = (await repo.getAll()).single;
+    expect(stored.enabled, isFalse);
+    expect(stored.name, '测试源');
+    await repo.setEnabled('s1', enabled: true);
+    stored = (await repo.getAll()).single;
+    expect(stored.enabled, isTrue);
+  });
+
   test('remove deletes the subscription', () async {
     await repo.upsert(sample);
     await repo.remove('s1');

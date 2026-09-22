@@ -55,6 +55,20 @@ class DriftChannelRepository implements ChannelRepository {
     });
   }
 
+  @override
+  Stream<Map<String, int>> watchCountsBySubscription() {
+    final count = _db.channels.id.count();
+    final q = _db.selectOnly(_db.channels)
+      ..addColumns([_db.channels.subscriptionId, count])
+      ..groupBy([_db.channels.subscriptionId]);
+    return q.watch().map((rows) {
+      return {
+        for (final r in rows)
+          r.read(_db.channels.subscriptionId)!: r.read(count) ?? 0,
+      };
+    });
+  }
+
   Stream<List<String>> _groupsWhere({String? subscriptionId}) {
     final q = _db.selectOnly(_db.channels, distinct: true)
       ..addColumns([_db.channels.groupTitle]);

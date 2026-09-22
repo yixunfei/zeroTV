@@ -5,6 +5,7 @@ import 'package:zerotv_player/features/channel/presentation/channel_list_page.da
 import 'package:zerotv_player/features/player/presentation/player_page.dart';
 import 'package:zerotv_player/features/settings/presentation/settings_page.dart';
 import 'package:zerotv_player/features/subscription/presentation/add_subscription_page.dart';
+import 'package:zerotv_player/features/subscription/presentation/subscriptions_page.dart';
 
 /// Provides the app-wide router.
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -20,6 +21,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/subscriptions',
+        name: 'subscription-management',
+        builder: (context, state) => const SubscriptionsPage(),
       ),
       GoRoute(
         path: '/add-subscription',

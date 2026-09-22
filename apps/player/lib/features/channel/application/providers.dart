@@ -13,6 +13,11 @@ final allGroupsProvider = StreamProvider<List<String>>((ref) {
   return ref.watch(channelRepositoryProvider).watchAllGroups();
 });
 
+/// Channel counts per subscription, keyed by subscription id.
+final channelCountsProvider = StreamProvider<Map<String, int>>((ref) {
+  return ref.watch(channelRepositoryProvider).watchCountsBySubscription();
+});
+
 /// Currently selected group filter; null means "all channels".
 final selectedGroupProvider = NotifierProvider<SelectedGroup, String?>(
   SelectedGroup.new,

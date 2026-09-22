@@ -22,4 +22,8 @@ abstract interface class ChannelRepository {
   /// User data (favorites, history) lives in separate tables keyed by
   /// [Channel.identityKey], so replacement never destroys it.
   Future<void> replaceAll(String subscriptionId, List<Channel> channels);
+
+  /// Watches the number of stored channels per subscription, keyed by
+  /// subscription id. Subscriptions without channels are absent.
+  Stream<Map<String, int>> watchCountsBySubscription();
 }

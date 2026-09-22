@@ -81,6 +81,7 @@ function Invoke-PubGetAll {
     }
   }
   Invoke-Step 'pub get: apps/player' {
+    Initialize-WindowsPluginSymlinks
     Push-Location $Script:AppDir
     try { flutter pub get } finally { Pop-Location }
   }

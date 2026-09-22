@@ -8,6 +8,7 @@ class FakeChannelRepository implements ChannelRepository {
   FakeChannelRepository({
     this.channels = const [],
     this.groups = const [],
+    this.counts = const {},
   });
 
   /// Channels returned by all watch methods.
@@ -15,6 +16,9 @@ class FakeChannelRepository implements ChannelRepository {
 
   /// Group titles returned by all group watch methods.
   final List<String> groups;
+
+  /// Channel counts per subscription id.
+  final Map<String, int> counts;
 
   @override
   Stream<List<Channel>> watchAll() => Stream.value(channels);
@@ -31,6 +35,11 @@ class FakeChannelRepository implements ChannelRepository {
 
   @override
   Stream<List<String>> watchAllGroups() => Stream.value(groups);
+
+  @override
+  Stream<Map<String, int>> watchCountsBySubscription() {
+    return Stream.value(counts);
+  }
 
   @override
   Future<void> replaceAll(

@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:m3u_parser/m3u_parser.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
+import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/add_subscription.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/default_source_seeder.dart';
+import 'package:zerotv_player/features/subscription/application/manage_subscription.dart';
 import 'package:zerotv_player/features/subscription/application/sync_subscription.dart';
 import 'package:zerotv_player/features/subscription/data/drift_subscription_repository.dart';
 import 'package:zerotv_player/features/subscription/data/subscription_source_factory.dart';
@@ -19,6 +21,13 @@ final subscriptionRepositoryProvider = Provider<SubscriptionRepository>((ref) {
 /// Watches all subscriptions.
 final subscriptionsProvider = StreamProvider<List<Subscription>>((ref) {
   return ref.watch(subscriptionRepositoryProvider).watchAll();
+});
+
+/// Provides the [ManageSubscription] use case.
+final manageSubscriptionProvider = Provider<ManageSubscription>((ref) {
+  return ManageSubscription(
+    subscriptions: ref.watch(subscriptionRepositoryProvider),
+  );
 });
 
 /// Shared dio client for subscription fetches.
@@ -75,6 +84,7 @@ final autoSyncServiceProvider = Provider<AutoSyncService>((ref) {
 final bootstrapProvider = FutureProvider<List<SyncFailure>>((ref) async {
   await DefaultSourceSeeder(
     ref.watch(subscriptionRepositoryProvider),
-  ).seedIfEmpty();
+    ref.watch(sharedPreferencesProvider),
+  ).seedIfNeeded();
   return ref.watch(autoSyncServiceProvider).syncDue();
 });

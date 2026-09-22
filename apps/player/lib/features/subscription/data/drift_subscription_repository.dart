@@ -43,6 +43,20 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
     );
   }
 
+  @override
+  Future<void> rename(String id, String name) async {
+    await (_db.update(_db.subscriptions)..where((t) => t.id.equals(id))).write(
+      db.SubscriptionsCompanion(name: Value(name)),
+    );
+  }
+
+  @override
+  Future<void> setEnabled(String id, {required bool enabled}) async {
+    await (_db.update(_db.subscriptions)..where((t) => t.id.equals(id))).write(
+      db.SubscriptionsCompanion(enabled: Value(enabled)),
+    );
+  }
+
   Subscription _toDomain(db.Subscription row) {
     return Subscription(
       id: row.id,
