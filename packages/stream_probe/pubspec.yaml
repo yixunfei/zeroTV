@@ -1,0 +1,13 @@
+name: stream_probe
+description: Stream availability probing engine for zeroTV. Pure Dart.
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  iptv_core:
+    path: ../iptv_core
+dev_dependencies:
+  test: ^1.31.0
+  very_good_analysis: ^10.3.0

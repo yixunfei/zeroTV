@@ -1,0 +1,12 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "build/**"
+    - ".dart_tool/**"
+
+linter:
+  rules:
+    # Deliberate single-method port interfaces (SOLID plugin points).
+    one_member_abstracts: false

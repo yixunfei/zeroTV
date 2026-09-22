@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies (per-package, no shared resolution)
+        run: |
+          dart pub get
+          for pkg in packages/*; do
+            (cd "$pkg" && dart pub get) || exit 1
+          done
+          (cd apps/player && flutter pub get)
+
+      - name: Code generation (drift)
+        working-directory: apps/player
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Verify formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Static analysis
+        run: flutter analyze
+
+      - name: Test pure Dart packages
+        run: |
+          for pkg in packages/*; do
+            echo "== $pkg =="
+            (cd "$pkg" && dart test) || exit 1
+          done
+
+      - name: Test app
+        working-directory: apps/player
+        run: flutter test

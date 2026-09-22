@@ -1,0 +1,9 @@
+name: zerotv_workspace
+description: zeroTV monorepo root (tooling only, no shared resolution).
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+
+dev_dependencies:
+  very_good_analysis: ^10.3.0
