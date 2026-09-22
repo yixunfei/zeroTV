@@ -24,6 +24,16 @@ packages/stream_probe  流可用性检测引擎（纯 Dart）
 
 ## 开发
 
+Windows 本机一键脚本见 [scripts/README.md](scripts/README.md)：
+
+```powershell
+powershell -File scripts\run_tests.ps1     # 一键质量门（与 CI 同构）
+powershell -File scripts\build_windows.ps1 # Windows 打包
+powershell -File scripts\build_android.ps1 # Android 打包
+```
+
+手动等价命令：
+
 ```bash
 # 解析依赖（每个目录各一次）
 dart pub get && for d in packages/* apps/player; do (cd $d && dart pub get); done
