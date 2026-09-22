@@ -44,4 +44,11 @@ class Subscription {
 
   /// Last successful sync time; null if never synced.
   final DateTime? lastSyncedAt;
+
+  /// Whether this subscription is due for a sync now.
+  bool get isDue {
+    final synced = lastSyncedAt;
+    if (synced == null) return true;
+    return DateTime.now().difference(synced) >= refreshInterval;
+  }
 }

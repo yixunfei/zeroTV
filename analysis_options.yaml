@@ -10,3 +10,7 @@ linter:
   rules:
     # Deliberate single-method port interfaces (SOLID plugin points).
     one_member_abstracts: false
+    # False positive for private fields + named params: applying it would
+    # require private named params (this._x) that callers in other
+    # libraries cannot pass.
+    prefer_initializing_formals: false

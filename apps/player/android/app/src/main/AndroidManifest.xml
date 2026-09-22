@@ -1,8 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- IPTV 需要联网；大量公开源是 http 明文，必须放行 cleartext -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="zerotv_player"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

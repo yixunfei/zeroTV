@@ -59,6 +59,15 @@ class Channels extends Table {
   /// Catchup source template, if any.
   TextColumn get catchupSource => text().nullable()();
 
+  /// Days of catchup the source claims to support.
+  IntColumn get catchupDays => integer().nullable()();
+
+  /// HTTP User-Agent required by the source, if any.
+  TextColumn get userAgent => text().nullable()();
+
+  /// HTTP Referer required by the source, if any.
+  TextColumn get referrer => text().nullable()();
+
   /// Insertion order within the subscription.
   IntColumn get position => integer()();
 }

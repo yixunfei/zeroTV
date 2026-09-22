@@ -13,7 +13,7 @@
 | 平台优先级 | P0：Android + Windows；P1：macOS / Linux / iOS；P2：Android TV（D-pad 适配） |
 | 播放器内核 | media_kit（libmpv），全平台行为一致，支持 HLS / RTSP / UDP 组播 / 主流封装编码 |
 | 应用形态 | 纯本地客户端，零后端、零账号体系 |
-| 源策略 | 首次启动经用户确认后一键添加示例订阅（默认源 = vbskycn/iptv IPv4 列表），不静默内置 |
+| 源策略 | 内置默认源（vbskycn/iptv IPv4，主地址+双镜像兜底），首次启动自动播种并同步；用户可删除/替换（2026-09-22 用户拍板，替代原"确认后添加"方案） |
 | 开源许可 | 代码 GPL-3.0（防止闭源二改；media_kit/libmpv 为 LGPL，动态链接不冲突） |
 | 分发渠道 | GitHub Releases 为主；F-Droid 可评估；Google Play / App Store 高风险，暂缓 |
 
@@ -161,14 +161,17 @@ abstract class EpgProvider {            // EPG 源插件
 2. **回放（时移/catchup）**：只有当源本身带 catchup 属性或提供回放地址时才可能，vbskycn 这类聚合源基本不支持。定位为「尽力而为」：检测到 catchup 参数时启用进度条拖拽，否则隐藏入口。
 3. **录制文件管理**：本地列表、播放、删除、系统分享导出。
 
-### 4.6 首次启动流程（合规关键）
+### 4.6 首次启动流程（2026-09-22 起生效）
 
 ```
-启动 → 欢迎页（说明 App 不含任何频道内容）
-     → 「添加示例订阅？」对话框（明示来源 vbskycn/iptv、第三方源免责条款）
-        ├─ 同意 → 添加订阅 → 立即同步 → 进入频道列表
-        └─ 跳过 → 空白首页 + 引导用户粘贴订阅 URL / 导入本地 M3U
+启动 → 检测订阅库为空
+     → 自动播种内置默认源（vbskycn/iptv IPv4，主地址 + gh-proxy/raw 双镜像）
+     → 立即同步 → 进入频道列表（失败则展示错误与重试，数据永不清空）
 ```
+
+默认源在数据层面就是一条普通订阅：用户可停用、删除、替换为任何其他源。
+App 本体仍不存储/分发任何频道内容，只内置"指向公开列表的地址"；
+免责声明保留在关于页与 README。
 
 ---
 
@@ -229,5 +232,11 @@ abstract class EpgProvider {            // EPG 源插件
    四个纯 Dart 包（含解析器/检测器最小可用实现与单测）、Flutter 空壳
    （riverpod/go_router/drift schema v1）、`analyze` + 全部测试绿。
    注：依赖解析采用各包 standalone 方案，见 3.1 节注。
-3. 下一步进入 M1：订阅添加（URL/文件/粘贴）→ 同步落库 → 分组频道列表 →
-   media_kit 播放页，验收标准为粘贴 M3U 地址后 Android/Windows 双端可看。
+3. ~~M1 核心链路~~ 已完成（2026-09-22）：订阅添加（URL/文件/粘贴）→
+   同步落库（失败保留旧数据）→ 分组频道列表（分组 chips + 过滤）→
+   media_kit 单源播放页（UA/Referer 透传）；**内置默认源**（vbskycn IPv4 +
+   双镜像，首启自动播种并同步）；drift schema v2（channels 补 catchup/UA 列）。
+   analyze + 全部测试绿。遗留：本机 Windows 构建因 flutter 插件符号链接
+   创建失败（环境问题，非代码问题）未做构建冒烟，Android 构建由用户侧验证。
+4. 下一步进入 M2：多订阅管理界面、WorkManager 后台同步、收藏、最近观看、
+   搜索、自定义添加单频道、stream_probe 批量可用性检测与标记。

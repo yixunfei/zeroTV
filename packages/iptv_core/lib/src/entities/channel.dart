@@ -51,4 +51,10 @@ class Channel {
   /// Identity key used by favorites/history: [tvgId] when present,
   /// otherwise the lower-cased trimmed name.
   String get identityKey => tvgId ?? name.trim().toLowerCase();
+
+  /// HTTP headers required to fetch/play this channel, if any.
+  Map<String, String> get httpHeaders => {
+    'User-Agent': ?userAgent,
+    'Referer': ?referrer,
+  };
 }

@@ -5,6 +5,9 @@ abstract interface class SubscriptionRepository {
   /// Watches all subscriptions, ordered by creation time.
   Stream<List<Subscription>> watchAll();
 
+  /// Returns all subscriptions once, ordered by creation time.
+  Future<List<Subscription>> getAll();
+
   /// Inserts or updates [subscription].
   Future<void> upsert(Subscription subscription);
 
