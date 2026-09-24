@@ -94,6 +94,12 @@ final filteredChannelsProvider = Provider<AsyncValue<List<Channel>>>((ref) {
       ref.watch(recentHistoryProvider),
       _recentOrdered,
     ),
+    FilterSearch(:final query) => channels.whenData(
+      (cs) => [
+        for (final c in cs)
+          if (c.name.toLowerCase().contains(query.toLowerCase())) c,
+      ],
+    ),
   };
 });
 

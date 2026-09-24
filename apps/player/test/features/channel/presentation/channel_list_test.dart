@@ -126,4 +126,55 @@ void main() {
     final olderSecond = tester.getTopLeft(find.text('CCTV-1'));
     expect(recentFirst.dy, lessThan(olderSecond.dy));
   });
+
+  testWidgets('search filters the list by name substring', (tester) async {
+    await pumpPage(tester);
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing); // chips hidden in search
+
+    await tester.enterText(find.byType(TextField), 'cctv');
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(find.text('CCTV-1'), findsOneWidget);
+    expect(find.text('湖南卫视'), findsNothing);
+  });
+
+  testWidgets('exiting search restores the full list', (tester) async {
+    await pumpPage(tester);
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'cctv');
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    await tester.tap(find.byIcon(Icons.close));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(find.text('CCTV-1'), findsOneWidget);
+    expect(find.text('湖南卫视'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsWidgets);
+  });
+
+  testWidgets('empty search result shows a dedicated hint', (tester) async {
+    await pumpPage(tester);
+
+    await tester.tap(find.byIcon(Icons.search));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '不存在的频道');
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(find.text('没有找到「不存在的频道」'), findsOneWidget);
+  });
 }

@@ -34,3 +34,12 @@ final class FilterGroup extends ChannelFilter {
   /// ungrouped label).
   final String group;
 }
+
+/// Shows channels whose name contains [query] (case-insensitive).
+final class FilterSearch extends ChannelFilter {
+  /// Creates the filter.
+  const FilterSearch(this.query);
+
+  /// The search query; an empty query matches every channel.
+  final String query;
+}

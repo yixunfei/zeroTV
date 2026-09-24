@@ -10,12 +10,41 @@ import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 /// Home page: grouped channel list, gated on first-run bootstrap
 /// (default-source seeding + initial sync).
-class ChannelListPage extends ConsumerWidget {
+class ChannelListPage extends ConsumerStatefulWidget {
   /// Creates the page.
   const ChannelListPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChannelListPage> createState() => _ChannelListPageState();
+}
+
+class _ChannelListPageState extends ConsumerState<ChannelListPage> {
+  bool _searching = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _enterSearch() {
+    setState(() => _searching = true);
+    ref.read(channelFilterProvider.notifier).current = const FilterSearch('');
+  }
+
+  void _exitSearch() {
+    _searchController.clear();
+    setState(() => _searching = false);
+    ref.read(channelFilterProvider.notifier).current = const FilterAll();
+  }
+
+  void _onQueryChanged(String query) {
+    ref.read(channelFilterProvider.notifier).current = FilterSearch(query);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen(bootstrapProvider, (_, next) {
       final failures = next.value;
       if (failures != null && failures.isNotEmpty) {
@@ -27,13 +56,36 @@ class ChannelListPage extends ConsumerWidget {
     final bootstrap = ref.watch(bootstrapProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('zeroTV'),
+        title: _searching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: '搜索频道…',
+                  border: InputBorder.none,
+                ),
+                onChanged: _onQueryChanged,
+              )
+            : const Text('zeroTV'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: '设置',
-            onPressed: () => context.goNamed('settings'),
-          ),
+          if (_searching)
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: '退出搜索',
+              onPressed: _exitSearch,
+            )
+          else ...[
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: '搜索',
+              onPressed: _enterSearch,
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: '设置',
+              onPressed: () => context.goNamed('settings'),
+            ),
+          ],
         ],
       ),
       body: switch (bootstrap) {
@@ -115,45 +167,46 @@ class _ChannelBrowser extends ConsumerWidget {
     final channelsAsync = ref.watch(filteredChannelsProvider);
     return Column(
       children: [
-        SizedBox(
-          height: 56,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            children: [
-              _FilterChip(
-                label: '全部',
-                selected: filter is FilterAll,
-                onSelected: () =>
-                    ref.read(channelFilterProvider.notifier).current =
-                        const FilterAll(),
-              ),
-              _FilterChip(
-                label: '收藏',
-                selected: filter is FilterFavorites,
-                onSelected: () =>
-                    ref.read(channelFilterProvider.notifier).current =
-                        const FilterFavorites(),
-              ),
-              _FilterChip(
-                label: '最近',
-                selected: filter is FilterRecent,
-                onSelected: () =>
-                    ref.read(channelFilterProvider.notifier).current =
-                        const FilterRecent(),
-              ),
-              for (final g in groups)
+        if (filter is! FilterSearch)
+          SizedBox(
+            height: 56,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              children: [
                 _FilterChip(
-                  label: g,
-                  selected: filter is FilterGroup && filter.group == g,
+                  label: '全部',
+                  selected: filter is FilterAll,
                   onSelected: () =>
                       ref.read(channelFilterProvider.notifier).current =
-                          FilterGroup(g),
+                          const FilterAll(),
                 ),
-            ],
+                _FilterChip(
+                  label: '收藏',
+                  selected: filter is FilterFavorites,
+                  onSelected: () =>
+                      ref.read(channelFilterProvider.notifier).current =
+                          const FilterFavorites(),
+                ),
+                _FilterChip(
+                  label: '最近',
+                  selected: filter is FilterRecent,
+                  onSelected: () =>
+                      ref.read(channelFilterProvider.notifier).current =
+                          const FilterRecent(),
+                ),
+                for (final g in groups)
+                  _FilterChip(
+                    label: g,
+                    selected: filter is FilterGroup && filter.group == g,
+                    onSelected: () =>
+                        ref.read(channelFilterProvider.notifier).current =
+                            FilterGroup(g),
+                  ),
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1),
+        if (filter is! FilterSearch) const Divider(height: 1),
         Expanded(
           child: switch (channelsAsync) {
             AsyncData(:final value) when value.isEmpty => _EmptyHint(
@@ -253,6 +306,7 @@ class _EmptyHint extends StatelessWidget {
     final (title, hint) = switch (filter) {
       FilterFavorites() => ('还没有收藏频道', '点频道右侧的星标即可收藏'),
       FilterRecent() => ('还没有观看记录', '播放过的频道会出现在这里'),
+      FilterSearch(:final query) => ('没有找到「$query」', '换个关键字试试'),
       _ => ('还没有任何频道', '添加订阅源后即可开始观看'),
     };
     final theme = Theme.of(context);
