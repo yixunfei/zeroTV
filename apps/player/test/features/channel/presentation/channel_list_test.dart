@@ -177,4 +177,61 @@ void main() {
 
     expect(find.text('没有找到「不存在的频道」'), findsOneWidget);
   });
+
+  testWidgets('resume banner appears when history matches a channel', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      historyEntries: [
+        HistoryEntry(
+          channelKey: 'cctv-1',
+          channelName: 'CCTV-1',
+          watchedAt: DateTime(2026, 9, 22, 8),
+        ),
+      ],
+    );
+
+    expect(find.text('继续观看：CCTV-1'), findsOneWidget);
+  });
+
+  testWidgets('resume banner hides when history has no matching channel', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      historyEntries: [
+        HistoryEntry(
+          channelKey: '已消失频道',
+          channelName: '已消失频道',
+          watchedAt: DateTime(2026, 9, 22, 8),
+        ),
+      ],
+    );
+
+    expect(find.textContaining('继续观看'), findsNothing);
+  });
+
+  testWidgets('dismissing the resume banner hides it for the session', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      historyEntries: [
+        HistoryEntry(
+          channelKey: 'cctv-1',
+          channelName: 'CCTV-1',
+          watchedAt: DateTime(2026, 9, 22, 8),
+        ),
+      ],
+    );
+    expect(find.text('继续观看：CCTV-1'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('关闭'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(find.text('继续观看：CCTV-1'), findsNothing);
+  });
 }

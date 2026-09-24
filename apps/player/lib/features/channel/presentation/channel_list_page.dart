@@ -157,16 +157,32 @@ class _BootError extends ConsumerWidget {
   }
 }
 
-class _ChannelBrowser extends ConsumerWidget {
+class _ChannelBrowser extends ConsumerStatefulWidget {
   const _ChannelBrowser();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ChannelBrowser> createState() => _ChannelBrowserState();
+}
+
+class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
+  /// Session-scoped dismissal of the resume banner.
+  bool _resumeDismissed = false;
+
+  @override
+  Widget build(BuildContext context) {
     final groups = ref.watch(allGroupsProvider).value ?? const <String>[];
     final filter = ref.watch(channelFilterProvider);
     final channelsAsync = ref.watch(filteredChannelsProvider);
+    final lastWatched = ref.watch(lastWatchedChannelProvider);
+    final showResume =
+        !_resumeDismissed && filter is FilterAll && lastWatched != null;
     return Column(
       children: [
+        if (showResume)
+          _ResumeBanner(
+            channel: lastWatched,
+            onDismiss: () => setState(() => _resumeDismissed = true),
+          ),
         if (filter is! FilterSearch)
           SizedBox(
             height: 56,
@@ -218,6 +234,32 @@ class _ChannelBrowser extends ConsumerWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ResumeBanner extends StatelessWidget {
+  const _ResumeBanner({required this.channel, required this.onDismiss});
+
+  final Channel channel;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: ListTile(
+        leading: const Icon(Icons.play_circle_outline),
+        title: Text('继续观看：${channel.name}'),
+        subtitle: const Text('点按回到上次收看的频道'),
+        trailing: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: '关闭',
+          onPressed: onDismiss,
+        ),
+        onTap: () => context.pushNamed('player', extra: channel),
+      ),
     );
   }
 }

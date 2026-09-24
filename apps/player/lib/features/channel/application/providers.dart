@@ -134,3 +134,17 @@ AsyncValue<R> _combine<A, B, R>(
   if (av == null || bv == null) return const AsyncLoading();
   return AsyncData(combine(av, bv));
 }
+
+/// The most recently watched channel that still exists upstream,
+/// or null when there is no usable history entry. Used by the
+/// "resume watching" banner on the channel list.
+final lastWatchedChannelProvider = Provider<Channel?>((ref) {
+  final channels = ref.watch(allChannelsProvider).value;
+  final history = ref.watch(recentHistoryProvider).value;
+  if (channels == null || history == null || history.isEmpty) return null;
+  final latest = history.first;
+  for (final c in channels) {
+    if (c.identityKey == latest.channelKey) return c;
+  }
+  return null;
+});
