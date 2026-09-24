@@ -5,6 +5,7 @@ import 'package:zerotv_player/features/channel/presentation/add_custom_channel_p
 import 'package:zerotv_player/features/channel/presentation/channel_list_page.dart';
 import 'package:zerotv_player/features/epg/presentation/epg_settings_page.dart';
 import 'package:zerotv_player/features/player/presentation/player_page.dart';
+import 'package:zerotv_player/features/recording/presentation/recordings_page.dart';
 import 'package:zerotv_player/features/settings/presentation/settings_page.dart';
 import 'package:zerotv_player/features/subscription/presentation/add_subscription_page.dart';
 import 'package:zerotv_player/features/subscription/presentation/subscriptions_page.dart';
@@ -33,6 +34,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/epg',
         name: 'epg-settings',
         builder: (context, state) => const EpgSettingsPage(),
+      ),
+      GoRoute(
+        path: '/recordings',
+        name: 'recordings',
+        builder: (context, state) => const RecordingsPage(),
       ),
       GoRoute(
         path: '/add-subscription',

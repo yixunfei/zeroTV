@@ -29,6 +29,13 @@ class SettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushNamed('epg-settings'),
           ),
+          ListTile(
+            leading: const Icon(Icons.fiber_manual_record_outlined),
+            title: const Text('录制文件'),
+            subtitle: const Text('管理本地录制'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('recordings'),
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.sync_outlined),

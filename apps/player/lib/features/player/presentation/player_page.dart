@@ -11,6 +11,9 @@ import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
 import 'package:zerotv_player/features/player/presentation/player_osd.dart';
+import 'package:zerotv_player/features/recording/application/manage_recording.dart';
+import 'package:zerotv_player/features/recording/application/providers.dart';
+import 'package:zerotv_player/features/recording/data/stream_recorder.dart';
 
 /// Fullscreen player page for a single channel.
 ///
@@ -37,6 +40,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   bool _recorded = false;
   PlayerAspect _aspect = PlayerAspect.contain;
   double _rate = 1;
+  Recording? _recording;
+  RecordingHandle? _recordingHandle;
+  ManageRecording? _manageRecording;
 
   /// Ordered sources to try, resolved once on first build.
   List<Channel> _sources = const [];
@@ -123,6 +129,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   void dispose() {
     unawaited(_playingSub.cancel());
     unawaited(_errorSub.cancel());
+    final recording = _recording;
+    final handle = _recordingHandle;
+    final manage = _manageRecording;
+    if (recording != null && handle != null && manage != null) {
+      unawaited(manage.stop(recording, handle));
+    }
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -152,8 +164,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                 player: _player,
                 aspect: _aspect,
                 rate: _rate,
+                recording: _recording != null,
                 onAspectChanged: (a) => setState(() => _aspect = a),
                 onRateChanged: _setRate,
+                onToggleRecord: _toggleRecord,
               ),
             ],
           ],
@@ -166,6 +180,41 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     await _player.setRate(rate);
     if (!mounted) return;
     setState(() => _rate = rate);
+  }
+
+  Future<void> _toggleRecord() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_recording != null) {
+      final recording = _recording!;
+      final handle = _recordingHandle;
+      final manage = _manageRecording;
+      setState(() {
+        _recording = null;
+        _recordingHandle = null;
+        _manageRecording = null;
+      });
+      if (handle != null && manage != null) {
+        await manage.stop(recording, handle);
+      }
+      messenger.showSnackBar(const SnackBar(content: Text('录制已保存')));
+      return;
+    }
+    final manage = ref.read(manageRecordingProvider);
+    try {
+      final result = await manage.start(_current);
+      if (!mounted) {
+        await result.handle.stop();
+        return;
+      }
+      setState(() {
+        _recording = result.recording;
+        _recordingHandle = result.handle;
+        _manageRecording = manage;
+      });
+      messenger.showSnackBar(const SnackBar(content: Text('开始录制')));
+    } on Object catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('录制失败：$e')));
+    }
   }
 }
 
@@ -311,15 +360,19 @@ class _BottomBar extends StatelessWidget {
     required this.player,
     required this.aspect,
     required this.rate,
+    required this.recording,
     required this.onAspectChanged,
     required this.onRateChanged,
+    required this.onToggleRecord,
   });
 
   final Player player;
   final PlayerAspect aspect;
   final double rate;
+  final bool recording;
   final ValueChanged<PlayerAspect> onAspectChanged;
   final ValueChanged<double> onRateChanged;
+  final VoidCallback onToggleRecord;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +409,14 @@ class _BottomBar extends StatelessWidget {
                   onPressed: player.playOrPause,
                 );
               },
+            ),
+            IconButton(
+              color: recording ? Colors.red : Colors.white,
+              icon: Icon(
+                recording ? Icons.stop_circle : Icons.fiber_manual_record,
+              ),
+              tooltip: recording ? '停止录制' : '开始录制',
+              onPressed: onToggleRecord,
             ),
             const Spacer(),
             _AudioTrackButton(player: player),

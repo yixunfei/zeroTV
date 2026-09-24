@@ -8,7 +8,7 @@ import 'package:zerotv_player/core/database/tables.dart';
 
 part 'app_database.g.dart';
 
-/// Application SQLite database (schema v4).
+/// Application SQLite database (schema v5).
 @DriftDatabase(
   tables: [
     Subscriptions,
@@ -18,6 +18,7 @@ part 'app_database.g.dart';
     ProbeResults,
     EpgChannels,
     EpgProgrammes,
+    Recordings,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -33,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -52,6 +53,10 @@ class AppDatabase extends _$AppDatabase {
         // v4: 新增 epg_channels / epg_programmes（EPG 数据）。
         await m.createTable(epgChannels);
         await m.createTable(epgProgrammes);
+      }
+      if (from < 5) {
+        // v5: 新增 recordings（录制文件）。
+        await m.createTable(recordings);
       }
     },
   );

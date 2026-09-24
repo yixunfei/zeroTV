@@ -166,3 +166,30 @@ class EpgProgrammes extends Table {
   /// Optional description.
   TextColumn get description => text().nullable()();
 }
+
+/// Manual recordings: raw stream bytes captured to a local file.
+class Recordings extends Table {
+  /// Stable unique id (uuid).
+  TextColumn get id => text()();
+
+  /// Channel identity key.
+  TextColumn get channelKey => text()();
+
+  /// Channel display name snapshot.
+  TextColumn get channelName => text()();
+
+  /// Absolute path of the recorded file.
+  TextColumn get filePath => text()();
+
+  /// When recording started.
+  DateTimeColumn get startedAt => dateTime()();
+
+  /// When recording stopped; null while still recording.
+  DateTimeColumn get endedAt => dateTime().nullable()();
+
+  /// Size in bytes captured so far.
+  IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
