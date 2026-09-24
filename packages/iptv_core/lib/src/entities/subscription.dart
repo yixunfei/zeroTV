@@ -8,6 +8,9 @@ enum SubscriptionKind {
 
   /// Pasted directly as text by the user.
   pastedText,
+
+  /// Curated one channel at a time by the user; no wholesale sync.
+  manual,
 }
 
 /// A user-managed playlist subscription.

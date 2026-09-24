@@ -56,6 +56,45 @@ class DriftChannelRepository implements ChannelRepository {
   }
 
   @override
+  Future<void> upsertManual(String subscriptionId, Channel channel) {
+    return _db.transaction(() async {
+      final existing =
+          await (_db.select(_db.channels)
+                ..where((t) => t.subscriptionId.equals(subscriptionId))
+                ..orderBy([(t) => OrderingTerm.asc(t.position)]))
+              .get();
+      final match = existing
+          .where((row) => _toDomain(row).identityKey == channel.identityKey)
+          .firstOrNull;
+      final position = match?.position ?? existing.length;
+      if (match != null) {
+        await (_db.delete(
+          _db.channels,
+        )..where((t) => t.id.equals(match.id))).go();
+      }
+      await _db
+          .into(_db.channels)
+          .insert(_toCompanion(subscriptionId, channel, position));
+    });
+  }
+
+  @override
+  Future<void> deleteManual(String subscriptionId, String identityKey) {
+    return _db.transaction(() async {
+      final rows = await (_db.select(
+        _db.channels,
+      )..where((t) => t.subscriptionId.equals(subscriptionId))).get();
+      for (final row in rows) {
+        if (_toDomain(row).identityKey == identityKey) {
+          await (_db.delete(
+            _db.channels,
+          )..where((t) => t.id.equals(row.id))).go();
+        }
+      }
+    });
+  }
+
+  @override
   Stream<Map<String, int>> watchCountsBySubscription() {
     final count = _db.channels.id.count();
     final q = _db.selectOnly(_db.channels)

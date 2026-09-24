@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
+import 'package:zerotv_player/features/channel/presentation/add_custom_channel_page.dart';
 import 'package:zerotv_player/features/channel/presentation/channel_list_page.dart';
 import 'package:zerotv_player/features/player/presentation/player_page.dart';
 import 'package:zerotv_player/features/settings/presentation/settings_page.dart';
@@ -31,6 +32,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/add-subscription',
         name: 'add-subscription',
         builder: (context, state) => const AddSubscriptionPage(),
+      ),
+      GoRoute(
+        path: '/add-channel',
+        name: 'add-channel',
+        builder: (context, state) => const AddCustomChannelPage(),
       ),
       GoRoute(
         path: '/player',

@@ -23,6 +23,14 @@ abstract interface class ChannelRepository {
   /// [Channel.identityKey], so replacement never destroys it.
   Future<void> replaceAll(String subscriptionId, List<Channel> channels);
 
+  /// Inserts or replaces one channel of [subscriptionId], matched by
+  /// [Channel.identityKey]. Used by the manual "my channels" list where
+  /// [replaceAll] would be too coarse.
+  Future<void> upsertManual(String subscriptionId, Channel channel);
+
+  /// Deletes one channel of [subscriptionId] by [Channel.identityKey].
+  Future<void> deleteManual(String subscriptionId, String identityKey);
+
   /// Watches the number of stored channels per subscription, keyed by
   /// subscription id. Subscriptions without channels are absent.
   Stream<Map<String, int>> watchCountsBySubscription();

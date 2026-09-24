@@ -104,4 +104,73 @@ void main() {
     final updated = await channels.watchCountsBySubscription().first;
     expect(updated, {'s1': 1, 's2': 1});
   });
+
+  group('upsertManual / deleteManual', () {
+    test('upsertManual appends a new channel in position order', () async {
+      await channels.upsertManual(
+        's1',
+        const Channel(name: 'A', streamUrl: 'http://a/1'),
+      );
+      await channels.upsertManual(
+        's1',
+        const Channel(name: 'B', streamUrl: 'http://a/2'),
+      );
+
+      final all = await channels.watchAll().first;
+      expect(all.map((c) => c.name).toList(), ['A', 'B']);
+    });
+
+    test(
+      'upsertManual replaces a channel with the same identity key',
+      () async {
+        await channels.upsertManual(
+          's1',
+          const Channel(name: 'A', streamUrl: 'http://a/1'),
+        );
+        await channels.upsertManual(
+          's1',
+          const Channel(name: 'A', streamUrl: 'http://a/updated'),
+        );
+
+        final all = await channels.watchAll().first;
+        expect(all, hasLength(1));
+        expect(all.single.streamUrl, 'http://a/updated');
+      },
+    );
+
+    test('upsertManual keeps replacement at the original position', () async {
+      await channels.upsertManual(
+        's1',
+        const Channel(name: 'A', streamUrl: 'http://a/1'),
+      );
+      await channels.upsertManual(
+        's1',
+        const Channel(name: 'B', streamUrl: 'http://a/2'),
+      );
+      await channels.upsertManual(
+        's1',
+        const Channel(name: 'A', streamUrl: 'http://a/updated'),
+      );
+
+      final all = await channels.watchAll().first;
+      expect(all.map((c) => c.name).toList(), ['A', 'B']);
+      expect(all.first.streamUrl, 'http://a/updated');
+    });
+
+    test('deleteManual removes by identity key', () async {
+      await channels.upsertManual(
+        's1',
+        const Channel(name: 'A', streamUrl: 'http://a/1', tvgId: 'a'),
+      );
+      await channels.upsertManual(
+        's1',
+        const Channel(name: 'B', streamUrl: 'http://a/2', tvgId: 'b'),
+      );
+
+      await channels.deleteManual('s1', 'a');
+      final all = await channels.watchAll().first;
+      expect(all, hasLength(1));
+      expect(all.single.name, 'B');
+    });
+  });
 }

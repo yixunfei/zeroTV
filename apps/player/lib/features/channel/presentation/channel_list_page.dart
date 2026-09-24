@@ -93,10 +93,30 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
         AsyncError(:final error) => _BootError(error: error),
         AsyncData() => const _ChannelBrowser(),
       },
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.pushNamed('add-subscription'),
-        icon: const Icon(Icons.add),
-        label: const Text('添加订阅'),
+      floatingActionButton: MenuAnchor(
+        builder: (context, controller, _) => FloatingActionButton(
+          onPressed: () {
+            if (controller.isOpen) {
+              controller.close();
+            } else {
+              controller.open();
+            }
+          },
+          tooltip: '添加',
+          child: const Icon(Icons.add),
+        ),
+        menuChildren: [
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.playlist_add),
+            onPressed: () => context.pushNamed('add-subscription'),
+            child: const Text('添加订阅'),
+          ),
+          MenuItemButton(
+            leadingIcon: const Icon(Icons.add_to_queue),
+            onPressed: () => context.pushNamed('add-channel'),
+            child: const Text('添加单频道'),
+          ),
+        ],
       ),
     );
   }

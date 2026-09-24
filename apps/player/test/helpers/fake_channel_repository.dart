@@ -46,4 +46,10 @@ class FakeChannelRepository implements ChannelRepository {
     String subscriptionId,
     List<Channel> channels,
   ) async {}
+
+  @override
+  Future<void> upsertManual(String subscriptionId, Channel channel) async {}
+
+  @override
+  Future<void> deleteManual(String subscriptionId, String identityKey) async {}
 }

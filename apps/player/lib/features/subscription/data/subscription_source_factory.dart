@@ -37,6 +37,8 @@ class DefaultSubscriptionSourceFactory implements SubscriptionSourceFactory {
         return FileSubscriptionSource(path);
       case SubscriptionKind.pastedText:
         throw UnsupportedError('粘贴文本订阅不支持重新同步');
+      case SubscriptionKind.manual:
+        throw UnsupportedError('自定义频道订阅不支持同步');
     }
   }
 

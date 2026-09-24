@@ -83,8 +83,11 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
 
   Subscription get _sub => widget.subscription;
 
-  /// Pasted-text imports are one-shot: there is no source to re-fetch.
-  bool get _syncable => _sub.kind != SubscriptionKind.pastedText;
+  /// Pasted-text imports and manual channels are one-shot: there is no
+  /// source to re-fetch.
+  bool get _syncable =>
+      _sub.kind != SubscriptionKind.pastedText &&
+      _sub.kind != SubscriptionKind.manual;
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +108,7 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
           Tooltip(
-            message: _syncable ? '自动同步' : '粘贴导入不支持同步',
+            message: _syncable ? '自动同步' : '该类型不支持同步',
             child: Switch(
               value: _sub.enabled,
               onChanged: _syncable
@@ -199,6 +202,7 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
       SubscriptionKind.remoteUrl => '远程 URL',
       SubscriptionKind.localFile => '本地文件',
       SubscriptionKind.pastedText => '粘贴导入',
+      SubscriptionKind.manual => '自定义频道',
     };
   }
 

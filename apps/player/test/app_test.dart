@@ -41,8 +41,20 @@ void main() {
 
     expect(find.text('zeroTV'), findsOneWidget);
     expect(find.text('还没有任何频道'), findsOneWidget);
-    expect(find.text('添加订阅'), findsOneWidget);
+    expect(find.byTooltip('添加'), findsOneWidget);
     expect(find.text('全部'), findsOneWidget);
+  });
+
+  testWidgets('add menu offers subscription and single-channel entries', (
+    tester,
+  ) async {
+    await pumpTestApp(tester);
+
+    await tester.tap(find.byTooltip('添加'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('添加订阅'), findsOneWidget);
+    expect(find.text('添加单频道'), findsOneWidget);
   });
 
   testWidgets('settings page opens from the app bar', (tester) async {

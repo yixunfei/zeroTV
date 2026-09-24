@@ -164,6 +164,8 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
             },
           ),
         ];
+      case SubscriptionKind.manual:
+        throw UnsupportedError('自定义频道请使用「添加单频道」入口');
     }
   }
 
@@ -199,6 +201,9 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
         SubscriptionKind.pastedText => await add.fromText(
           name: _nameController.text,
           content: _textController.text,
+        ),
+        SubscriptionKind.manual => throw UnsupportedError(
+          '自定义频道请使用「添加单频道」入口',
         ),
       };
       if (!mounted) return;
