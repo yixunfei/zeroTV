@@ -26,3 +26,8 @@ apps/player/l10n/untranslated.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Release signing material (never commit)
+apps/player/android/key.properties
+apps/player/android/**/*.jks
+apps/player/android/**/*.keystore

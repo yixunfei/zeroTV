@@ -24,9 +24,11 @@ jobs:
           done
           (cd apps/player && flutter pub get)
 
-      - name: Code generation (drift)
+      - name: Code generation (drift + l10n)
         working-directory: apps/player
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          flutter gen-l10n
 
       - name: Verify formatting
         run: dart format --set-exit-if-changed .
