@@ -1127,6 +1127,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "7.0.1"
+  xmltv_parser:
+    dependency: "direct main"
+    description:
+      path: "../../packages/xmltv_parser"
+      relative: true
+    source: path
+    version: "0.0.0"
   yaml:
     dependency: transitive
     description:

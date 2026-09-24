@@ -130,3 +130,39 @@ class ProbeResults extends Table {
   @override
   Set<Column> get primaryKey => {channelKey};
 }
+
+/// XMLTV EPG channel metadata, replaced wholesale on each feed sync.
+class EpgChannels extends Table {
+  /// XMLTV channel id.
+  TextColumn get id => text()();
+
+  /// Display name from the feed.
+  TextColumn get displayName => text()();
+
+  /// Optional channel icon URL.
+  TextColumn get iconUrl => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// XMLTV programme entries, replaced wholesale on each feed sync.
+class EpgProgrammes extends Table {
+  /// Surrogate id.
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Owning XMLTV channel id.
+  TextColumn get channelId => text()();
+
+  /// Programme title.
+  TextColumn get title => text()();
+
+  /// Start time (UTC).
+  DateTimeColumn get start => dateTime()();
+
+  /// End time (UTC).
+  DateTimeColumn get stop => dateTime()();
+
+  /// Optional description.
+  TextColumn get description => text().nullable()();
+}

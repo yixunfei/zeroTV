@@ -29,6 +29,8 @@ dependencies:
     path: ../../packages/stream_probe
   uuid: ^4.6.0
   workmanager: ^0.10.10
+  xmltv_parser:
+    path: ../../packages/xmltv_parser
 
 dev_dependencies:
   build_runner: ^2.15.1
