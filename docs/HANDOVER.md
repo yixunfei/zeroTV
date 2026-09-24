@@ -1,12 +1,16 @@
 # zeroTV 接手开发（Handover ）
 
-> 生成时间：2026-09-24（M3 完成后刷新）。将本文件全文提供给下一会话即可无缝接手。  
+> 生成时间：2026-09-24（M4-2/3 完成后刷新）。将本文件全文提供给下一会话即可无缝接手。  
 > 本文件描述的是"当前真实状态"，与 docs/PLAN.md（长期计划）互补；冲突时以代码为准。
 
 ## 0. 接手第一件事
 
-**M3 已全部完成、质量门全绿、已按里程碑粒度提交。** 进入会话后先确认工作树状态  
-（`git status` 应为 clean），再开新任务（M4 或平台适配）。  
+**M3 已提交；M4-3（关于页 + 首次免责声明）与 M4-2（中英 i18n）已实现但未提交。**  
+进入会话后先看 `git status` / `git diff`，确认这批改动后再提交或继续 M4 其余项。  
+测试前必须 `flutter gen-l10n`（已并入 `scripts/common.ps1` 的 `Invoke-Codegen`）；  
+`lib/l10n/generated/` 不入库。widget 测试若断言中文，须把 `settings.locale` 设为 `zh`  
+（本机系统语言为英文，否则跟随系统会渲染英文）。独立 `MaterialApp` 测试用  
+`test/helpers/localized_app.dart`。  
 中文提交信息必须用 `git commit -F <utf8文件>`，且文件须以无 BOM 的 UTF-8 写入  
 （PowerShell `Out-File` 管道会丢中文，用 `[System.IO.File]::WriteAllText(..., UTF8Encoding($false))`）。
 
@@ -64,6 +68,17 @@ monorepo（1 个 Flutter App + 4 个纯 Dart 包），P0 平台 Android + Window
 
 **M3 验收：** 全绿（app 114 例）。
 
+- **M4-3 关于页与首次免责声明（未提交）**：`AboutPage`（`/settings/about`）；  
+  设置页「关于」可进入；`disclaimerText` 与 README 免责声明一致；  
+  `AppSettings.disclaimerAccepted`（prefs `settings.disclaimerAccepted`）；  
+  首页 `ChannelListPage.initState` 调 `maybeShowDisclaimer`（不可关闭，确认后不再弹出）。  
+  渲染频道列表的测试必须再 override `sharedPreferencesProvider`（已接受免责声明）。
+
+- **M4-2 中英 i18n（未提交）**：`flutter_localizations` + `lib/l10n/app_zh.arb`（模板）/  
+  `app_en.arb`；界面文案走 `AppLocalizations.of(context)`。`AppSettings.locale`  
+  （prefs `settings.locale`，null = 跟随系统）；设置页「语言」可选跟随系统/中文/English。  
+  异常消息与默认源名仍为中文（不进 arb）。
+
 ## 3. scripts/ 目录
 
 ```
@@ -85,15 +100,15 @@ Windows 插件符号链接预建（`Initialize-WindowsPluginSymlinks`）已下�
 - 手动等价物：逐目录 `pub get` → app 内 `dart run build_runner build -d`  
   → 根目录 `dart format --set-exit-if-changed .` + `flutter analyze`  
   → 各 packages `dart test` → app `flutter test`。
-- 当前状态：全绿（最近一次全量验证 2026-09-24，app 114 例）。
+- 当前状态：全绿（最近一次全量验证 2026-09-24，app 117 例）。
 
 ## 5. 下一步待办（M4，按优先级）
 
 M3 已收尾。下一步进入 **M4 — 打磨与发布**：
 
 1. 性能与内存压测（5000+ 频道列表滚动 60fps、长时播放内存稳定）。
-2. i18n 中英（flutter_localizations + arb；当前 UI 文案为硬编码中文）。
-3. 首次启动流程打磨 + 免责声明（关于页/README 固定展示）。
+2. ~~i18n 中英~~ 已实现（gen-l10n + 设置页语言切换），待提交。
+3. ~~首次启动流程打磨 + 免责声明~~ 已实现（关于页 + 首启弹窗 + README），待提交。
 4. 应用图标（勿用电视台台标）。
 5. Release 工作流（tag 触发双端构建并上传 GitHub Releases，含 Android 签名配置）。
 
@@ -144,7 +159,9 @@ M3 已收尾。下一步进入 **M4 — 打磨与发布**：
   （channelRepositoryProvider / favoritesRepositoryProvider /  
   watchHistoryRepositoryProvider / probeResultRepositoryProvider /  
   subscriptionRepositoryProvider / epgIndexProvider）+ bootstrapProvider；  
-  **app 级/设置页测试还需 override `sharedPreferencesProvider`**（app 现在读主题设置）。  
+   **app 级/设置页/频道列表测试还需 override `sharedPreferencesProvider`**  
+   （app 读主题设置；频道列表首启会读免责声明标志，未 override 会抛  
+   `UnimplementedError`）。
   PopupMenu/对话框流程用 `pumpAndSettle`（菜单动画 ~300ms，固定次数单帧  
   pump 会 tap miss）；纯列表渲染沿用 5 次单帧 pump。
 - **Windows 构建遗留问题**：flutter 创建插件符号链接在本机崩溃（errno=2），  

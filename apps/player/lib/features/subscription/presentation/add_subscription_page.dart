@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Page for adding a subscription: remote URL, local file, or pasted text.
 class AddSubscriptionPage extends ConsumerStatefulWidget {
@@ -36,29 +37,30 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('添加订阅')),
+      appBar: AppBar(title: Text(l10n.addSubscriptionTitle)),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             SegmentedButton<SubscriptionKind>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: SubscriptionKind.remoteUrl,
-                  icon: Icon(Icons.link),
-                  label: Text('URL'),
+                  icon: const Icon(Icons.link),
+                  label: Text(l10n.url),
                 ),
                 ButtonSegment(
                   value: SubscriptionKind.localFile,
-                  icon: Icon(Icons.folder_open),
-                  label: Text('本地文件'),
+                  icon: const Icon(Icons.folder_open),
+                  label: Text(l10n.localFile),
                 ),
                 ButtonSegment(
                   value: SubscriptionKind.pastedText,
-                  icon: Icon(Icons.content_paste),
-                  label: Text('粘贴文本'),
+                  icon: const Icon(Icons.content_paste),
+                  label: Text(l10n.pastedText),
                 ),
               ],
               selected: {_kind},
@@ -68,16 +70,16 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
             TextFormField(
               controller: _nameController,
               decoration: InputDecoration(
-                labelText: '名称',
+                labelText: l10n.nameLabel,
                 hintText: _kind == SubscriptionKind.pastedText
-                    ? '必填'
-                    : '留空则自动命名',
+                    ? l10n.nameRequired
+                    : l10n.nameOptional,
                 border: const OutlineInputBorder(),
               ),
               validator: (v) {
                 if (_kind == SubscriptionKind.pastedText &&
                     (v == null || v.trim().isEmpty)) {
-                  return '粘贴文本订阅需要名称';
+                  return l10n.pastedNameRequired;
                 }
                 return null;
               },
@@ -101,7 +103,7 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.download_done),
-              label: Text(_submitting ? '正在同步…' : '添加并同步'),
+              label: Text(_submitting ? l10n.syncing : l10n.addAndSync),
             ),
           ],
         ),
@@ -110,22 +112,23 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
   }
 
   List<Widget> _kindFields() {
+    final l10n = AppLocalizations.of(context);
     switch (_kind) {
       case SubscriptionKind.remoteUrl:
         return [
           TextFormField(
             controller: _urlController,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: '播放列表 URL',
-              hintText: 'https://example.com/list.m3u',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.playlistUrl,
+              hintText: l10n.playlistUrlHint,
+              border: const OutlineInputBorder(),
             ),
             validator: (v) {
               final uri = Uri.tryParse(v?.trim() ?? '');
               if (uri == null ||
                   !(uri.isScheme('HTTP') || uri.isScheme('HTTPS'))) {
-                return '请输入合法的 http(s) 地址';
+                return l10n.invalidHttpUrl;
               }
               return null;
             },
@@ -136,13 +139,13 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
           OutlinedButton.icon(
             onPressed: _submitting ? null : _pickFile,
             icon: const Icon(Icons.upload_file),
-            label: Text(_pickedFilePath ?? '选择 M3U/TXT 文件'),
+            label: Text(_pickedFilePath ?? l10n.pickPlaylist),
           ),
           if (_pickedFilePath == null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '尚未选择文件',
+                l10n.noFilePicked,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -152,26 +155,26 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
           TextFormField(
             controller: _textController,
             maxLines: 8,
-            decoration: const InputDecoration(
-              labelText: 'M3U 内容',
-              hintText: '#EXTM3U\n#EXTINF:-1,频道名\nhttp://…',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.m3uContent,
+              hintText: l10n.m3uHint,
+              border: const OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
             validator: (v) {
-              if (v == null || v.trim().isEmpty) return '请粘贴播放列表内容';
+              if (v == null || v.trim().isEmpty) return l10n.pasteRequired;
               return null;
             },
           ),
         ];
       case SubscriptionKind.manual:
-        throw UnsupportedError('自定义频道请使用「添加单频道」入口');
+        throw UnsupportedError(l10n.useAddChannel);
     }
   }
 
   Future<void> _pickFile() async {
     final file = await FilePicker.pickFile(
-      dialogTitle: '选择播放列表文件',
+      dialogTitle: AppLocalizations.of(context).pickFileDialog,
       type: FileType.custom,
       allowedExtensions: const ['m3u', 'm3u8', 'txt'],
     );
@@ -184,6 +187,7 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final add = ref.read(addSubscriptionProvider);
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _submitting = true;
       _error = null;
@@ -196,19 +200,23 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
         ),
         SubscriptionKind.localFile => await add.fromFile(
           name: _nameController.text,
-          path: _requireFilePath(),
+          path: _requireFilePath(l10n),
         ),
         SubscriptionKind.pastedText => await add.fromText(
           name: _nameController.text,
           content: _textController.text,
         ),
         SubscriptionKind.manual => throw UnsupportedError(
-          '自定义频道请使用「添加单频道」入口',
+          l10n.useAddChannel,
         ),
       };
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已添加订阅，共 ${result.channelCount} 个频道')),
+        SnackBar(
+          content: Text(
+            l10n.subscriptionAdded(result.channelCount),
+          ),
+        ),
       );
       context.pop();
     } on Object catch (e) {
@@ -219,9 +227,9 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
     }
   }
 
-  String _requireFilePath() {
+  String _requireFilePath(AppLocalizations l10n) {
     final path = _pickedFilePath;
-    if (path == null) throw StateError('请先选择文件');
+    if (path == null) throw StateError(l10n.pickFileFirst);
     return path;
   }
 }

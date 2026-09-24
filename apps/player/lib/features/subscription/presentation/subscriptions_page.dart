@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Subscription management page: list all subscriptions with channel
 /// counts, toggle auto-sync, rename, delete, or sync one manually.
@@ -15,14 +16,15 @@ class SubscriptionsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final subsAsync = ref.watch(subscriptionsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('订阅管理'),
+        title: Text(l10n.subscriptionsTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: '添加订阅',
+            tooltip: l10n.addSubscription,
             onPressed: () => context.pushNamed('add-subscription'),
           ),
         ],
@@ -34,7 +36,9 @@ class SubscriptionsPage extends ConsumerWidget {
           itemBuilder: (context, i) =>
               _SubscriptionTile(subscription: value[i]),
         ),
-        AsyncError(:final error) => Center(child: Text('加载失败：$error')),
+        AsyncError(:final error) => Center(
+          child: Text(l10n.loadFailed('$error')),
+        ),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );
@@ -56,12 +60,15 @@ class _EmptyState extends StatelessWidget {
             color: Theme.of(context).colorScheme.outline,
           ),
           const SizedBox(height: 16),
-          Text('还没有任何订阅', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            AppLocalizations.of(context).noSubscriptions,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () => context.pushNamed('add-subscription'),
             icon: const Icon(Icons.add),
-            label: const Text('添加订阅'),
+            label: Text(AppLocalizations.of(context).addSubscription),
           ),
         ],
       ),
@@ -91,12 +98,17 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final counts = ref.watch(channelCountsProvider).value ?? const {};
     final count = counts[_sub.id] ?? 0;
     return ListTile(
       title: Text(_sub.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        '${_kindLabel(_sub.kind)} · $count 个频道 · ${_syncLabel(_sub)}',
+        l10n.subscriptionMeta(
+          _kindLabel(l10n, _sub.kind),
+          count,
+          _syncLabel(l10n, _sub),
+        ),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -108,7 +120,7 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
           Tooltip(
-            message: _syncable ? '自动同步' : '该类型不支持同步',
+            message: _syncable ? l10n.autoSync : l10n.syncUnsupported,
             child: Switch(
               value: _sub.enabled,
               onChanged: _syncable
@@ -124,10 +136,10 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
               PopupMenuItem(
                 value: 'sync',
                 enabled: _syncable,
-                child: const Text('立即同步'),
+                child: Text(l10n.syncNow),
               ),
-              const PopupMenuItem(value: 'rename', child: Text('改名')),
-              const PopupMenuItem(value: 'delete', child: Text('删除')),
+              PopupMenuItem(value: 'rename', child: Text(l10n.rename)),
+              PopupMenuItem(value: 'delete', child: Text(l10n.delete)),
             ],
           ),
         ],
@@ -149,13 +161,20 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
   Future<void> _syncNow() async {
     setState(() => _syncing = true);
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     try {
       final result = await ref.read(syncSubscriptionProvider)(_sub);
       messenger.showSnackBar(
-        SnackBar(content: Text('同步完成：${result.channelCount} 个频道')),
+        SnackBar(
+          content: Text(
+            l10n.syncDone(result.channelCount),
+          ),
+        ),
       );
     } on Object catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('同步失败：$e')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.syncFailed('$e'))),
+      );
     } finally {
       if (mounted) setState(() => _syncing = false);
     }
@@ -175,40 +194,41 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
     final count = counts[_sub.id] ?? 0;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除订阅'),
-        content: Text(
-          '删除「${_sub.name}」？其 $count 个频道将一并删除；收藏与观看历史保留。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n.deleteSubscription),
+          content: Text(l10n.deleteSubscriptionBody(_sub.name, count)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(l10n.delete),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed ?? false) {
       await ref.read(manageSubscriptionProvider).remove(_sub.id);
     }
   }
 
-  static String _kindLabel(SubscriptionKind kind) {
+  static String _kindLabel(AppLocalizations l10n, SubscriptionKind kind) {
     return switch (kind) {
-      SubscriptionKind.remoteUrl => '远程 URL',
-      SubscriptionKind.localFile => '本地文件',
-      SubscriptionKind.pastedText => '粘贴导入',
-      SubscriptionKind.manual => '自定义频道',
+      SubscriptionKind.remoteUrl => l10n.kindRemote,
+      SubscriptionKind.localFile => l10n.kindFile,
+      SubscriptionKind.pastedText => l10n.kindPasted,
+      SubscriptionKind.manual => l10n.kindManual,
     };
   }
 
-  static String _syncLabel(Subscription sub) {
+  static String _syncLabel(AppLocalizations l10n, Subscription sub) {
     final synced = sub.lastSyncedAt;
-    if (synced == null) return '从未同步';
+    if (synced == null) return l10n.neverSynced;
     final t = synced.toLocal();
     String two(int v) => v.toString().padLeft(2, '0');
     return '${t.year}-${two(t.month)}-${two(t.day)} '
@@ -248,20 +268,21 @@ class _RenameDialogState extends State<_RenameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('订阅改名'),
+      title: Text(l10n.renameSubscription),
       content: TextField(
         controller: _controller,
         autofocus: true,
-        decoration: const InputDecoration(labelText: '订阅名称'),
+        decoration: InputDecoration(labelText: l10n.subscriptionName),
         onSubmitted: (_) => _submit(),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+          child: Text(l10n.cancel),
         ),
-        FilledButton(onPressed: _submit, child: const Text('确定')),
+        FilledButton(onPressed: _submit, child: Text(l10n.confirm)),
       ],
     );
   }

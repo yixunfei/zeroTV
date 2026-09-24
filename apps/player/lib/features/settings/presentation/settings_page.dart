@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerotv_player/core/settings/settings_providers.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Settings hub: subscriptions, EPG, sync, detection, playback, theme.
 class SettingsPage extends ConsumerWidget {
@@ -10,76 +11,88 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final settings = ref.watch(appSettingsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: AppBar(title: Text(l10n.settings)),
       body: ListView(
         children: [
           ListTile(
             leading: const Icon(Icons.playlist_play_outlined),
-            title: const Text('订阅管理'),
-            subtitle: const Text('启停、改名、删除、手动同步'),
+            title: Text(l10n.subscriptionsTile),
+            subtitle: Text(l10n.subscriptionsTileHint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushNamed('subscription-management'),
           ),
           ListTile(
             leading: const Icon(Icons.event_note_outlined),
-            title: const Text('EPG 节目单'),
-            subtitle: const Text('配置 XMLTV 源，显示「现在/接下来」'),
+            title: Text(l10n.epgTitle),
+            subtitle: Text(l10n.epgTileHint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushNamed('epg-settings'),
           ),
           ListTile(
             leading: const Icon(Icons.fiber_manual_record_outlined),
-            title: const Text('录制文件'),
-            subtitle: const Text('管理本地录制'),
+            title: Text(l10n.recordingsTile),
+            subtitle: Text(l10n.recordingsTileHint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushNamed('recordings'),
           ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.sync_outlined),
-            title: const Text('自动同步间隔'),
-            subtitle: Text(_syncLabel(settings.syncInterval)),
+            title: Text(l10n.syncInterval),
+            subtitle: Text(_syncLabel(l10n, settings.syncInterval)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pickSyncInterval(context, ref),
           ),
           ListTile(
             leading: const Icon(Icons.network_check_outlined),
-            title: const Text('检测并发数'),
-            subtitle: Text('${settings.probeConcurrency} 路并发'),
+            title: Text(l10n.probeConcurrency),
+            subtitle: Text(l10n.concurrencyValue(settings.probeConcurrency)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pickConcurrency(context, ref),
           ),
           ListTile(
             leading: const Icon(Icons.memory_outlined),
-            title: const Text('播放缓冲'),
+            title: Text(l10n.buffer),
             subtitle: Text(_bufferLabel(settings.bufferSizeBytes)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pickBuffer(context, ref),
           ),
           ListTile(
             leading: const Icon(Icons.brightness_6_outlined),
-            title: const Text('主题'),
-            subtitle: Text(_themeLabel(settings.themeMode)),
+            title: Text(l10n.theme),
+            subtitle: Text(_themeLabel(l10n, settings.themeMode)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pickTheme(context, ref),
           ),
+          ListTile(
+            leading: const Icon(Icons.language_outlined),
+            title: Text(l10n.language),
+            subtitle: Text(_localeLabel(l10n, settings.locale)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pickLocale(context, ref),
+          ),
           const Divider(),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('关于 zeroTV'),
-            subtitle: Text('开源免费 · 本地优先 · GPL-3.0'),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: Text(l10n.aboutTile),
+            subtitle: Text(l10n.aboutTagline),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('about'),
           ),
         ],
       ),
     );
   }
 
-  static String _syncLabel(Duration? interval) {
-    if (interval == null) return '仅手动';
+  static String _syncLabel(AppLocalizations l10n, Duration? interval) {
+    if (interval == null) return l10n.manualOnly;
     final hours = interval.inHours;
-    return hours >= 1 ? '每 $hours 小时' : '每 ${interval.inMinutes} 分钟';
+    return hours >= 1
+        ? l10n.everyHours(hours)
+        : l10n.everyMinutes(interval.inMinutes);
   }
 
   static String _bufferLabel(int bytes) {
@@ -87,11 +100,19 @@ class SettingsPage extends ConsumerWidget {
     return '$mb MB';
   }
 
-  static String _themeLabel(ThemeMode mode) {
+  static String _themeLabel(AppLocalizations l10n, ThemeMode mode) {
     return switch (mode) {
-      ThemeMode.light => '浅色',
-      ThemeMode.dark => '深色',
-      ThemeMode.system => '跟随系统',
+      ThemeMode.light => l10n.themeLight,
+      ThemeMode.dark => l10n.themeDark,
+      ThemeMode.system => l10n.themeSystem,
+    };
+  }
+
+  static String _localeLabel(AppLocalizations l10n, Locale? locale) {
+    return switch (locale?.languageCode) {
+      'zh' => l10n.localeZh,
+      'en' => l10n.localeEn,
+      _ => l10n.localeSystem,
     };
   }
 
@@ -113,7 +134,11 @@ class SettingsPage extends ConsumerWidget {
           children: [
             for (final option in options)
               ListTile(
-                title: Text(option == null ? '仅手动' : _syncLabel(option)),
+                title: Text(
+                  option == null
+                      ? AppLocalizations.of(context).manualOnly
+                      : _syncLabel(AppLocalizations.of(context), option),
+                ),
                 trailing: option == current ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(context).pop(option),
               ),
@@ -135,7 +160,9 @@ class SettingsPage extends ConsumerWidget {
           children: [
             for (final option in options)
               ListTile(
-                title: Text('$option 路并发'),
+                title: Text(
+                  AppLocalizations.of(context).concurrencyValue(option),
+                ),
                 trailing: option == current ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(context).pop(option),
               ),
@@ -150,11 +177,12 @@ class SettingsPage extends ConsumerWidget {
 
   Future<void> _pickBuffer(BuildContext context, WidgetRef ref) async {
     final current = ref.read(appSettingsProvider).bufferSizeBytes;
-    const options = [
-      ('低延迟（8 MB）', 8 * 1024 * 1024),
-      ('均衡（32 MB）', 32 * 1024 * 1024),
-      ('稳定（64 MB）', 64 * 1024 * 1024),
-      ('高缓冲（128 MB）', 128 * 1024 * 1024),
+    final l10n = AppLocalizations.of(context);
+    final options = [
+      (l10n.bufferLow, 8 * 1024 * 1024),
+      (l10n.bufferBalanced, 32 * 1024 * 1024),
+      (l10n.bufferStable, 64 * 1024 * 1024),
+      (l10n.bufferHigh, 128 * 1024 * 1024),
     ];
     final picked = await showModalBottomSheet<int>(
       context: context,
@@ -187,7 +215,7 @@ class SettingsPage extends ConsumerWidget {
           children: [
             for (final mode in ThemeMode.values)
               ListTile(
-                title: Text(_themeLabel(mode)),
+                title: Text(_themeLabel(AppLocalizations.of(context), mode)),
                 trailing: mode == current ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.of(context).pop(mode),
               ),
@@ -198,5 +226,37 @@ class SettingsPage extends ConsumerWidget {
     if (picked != null) {
       await ref.read(appSettingsProvider.notifier).setThemeMode(picked);
     }
+  }
+
+  Future<void> _pickLocale(BuildContext context, WidgetRef ref) async {
+    final current = ref.read(appSettingsProvider).locale?.languageCode;
+    final l10n = AppLocalizations.of(context);
+    const system = '';
+    final options = <(String, String)>[
+      (system, l10n.localeSystem),
+      ('zh', l10n.localeZh),
+      ('en', l10n.localeEn),
+    ];
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final (code, label) in options)
+              ListTile(
+                title: Text(label),
+                trailing: code == (current ?? system)
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.of(context).pop(code),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    final locale = picked.isEmpty ? null : Locale(picked);
+    await ref.read(appSettingsProvider.notifier).setLocale(locale);
   }
 }

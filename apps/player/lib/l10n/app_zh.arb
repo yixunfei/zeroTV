@@ -1,0 +1,273 @@
+{
+  "@@locale": "zh",
+  "appTitle": "zeroTV",
+  "cancel": "取消",
+  "delete": "删除",
+  "confirm": "确定",
+  "retry": "重试",
+  "close": "关闭",
+  "loadFailed": "加载失败：{error}",
+  "@loadFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settings": "设置",
+  "search": "搜索",
+  "exitSearch": "退出搜索",
+  "searchHint": "搜索频道…",
+  "add": "添加",
+  "addSubscription": "添加订阅",
+  "addChannel": "添加单频道",
+  "syncingSources": "正在同步订阅源…",
+  "syncFailedTitle": "订阅源同步失败",
+  "syncFailedKeep": "{count} 个订阅同步失败，已保留旧数据",
+  "@syncFailedKeep": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "filterAll": "全部",
+  "filterFavorites": "收藏",
+  "filterRecent": "最近",
+  "filterAvailable": "可用",
+  "resumeTitle": "继续观看：{name}",
+  "@resumeTitle": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "resumeSubtitle": "点按回到上次收看的频道",
+  "probeScan": "检测可用性",
+  "probeScanning": "正在检测可用性 {completed}/{total}",
+  "@probeScanning": {
+    "placeholders": {
+      "completed": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "unfavorite": "取消收藏",
+  "favorite": "收藏",
+  "deleteChannel": "删除频道",
+  "deleteChannelBody": "从「我的频道」移除「{name}」？",
+  "@deleteChannelBody": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "nowNextBoth": "正在播：{now} · 接下来：{next}",
+  "@nowNextBoth": {
+    "placeholders": {
+      "now": { "type": "String" },
+      "next": { "type": "String" }
+    }
+  },
+  "nowOnly": "正在播：{now}",
+  "@nowOnly": {
+    "placeholders": { "now": { "type": "String" } }
+  },
+  "nextOnly": "接下来：{next}",
+  "@nextOnly": {
+    "placeholders": { "next": { "type": "String" } }
+  },
+  "probeOk": "可用",
+  "probeTimeout": "超时",
+  "probeDead": "失效",
+  "probeUnsupported": "不支持检测",
+  "emptyFavoritesTitle": "还没有收藏频道",
+  "emptyFavoritesHint": "点频道右侧的星标即可收藏",
+  "emptyRecentTitle": "还没有观看记录",
+  "emptyRecentHint": "播放过的频道会出现在这里",
+  "emptySearchTitle": "没有找到「{query}」",
+  "@emptySearchTitle": {
+    "placeholders": { "query": { "type": "String" } }
+  },
+  "emptySearchHint": "换个关键字试试",
+  "emptyAvailableTitle": "还没有可用频道",
+  "emptyAvailableHint": "先运行可用性检测，或稍后重试",
+  "emptyChannelsTitle": "还没有任何频道",
+  "emptyChannelsHint": "添加订阅源后即可开始观看",
+  "ungrouped": "未分组",
+  "addChannelTitle": "添加单频道",
+  "channelName": "频道名称",
+  "channelNameHint": "如：CCTV-1",
+  "channelNameRequired": "请输入频道名称",
+  "streamUrl": "流地址",
+  "streamUrlHint": "http://… 或 rtsp://… / rtp://…",
+  "streamUrlInvalid": "请输入带协议的流地址",
+  "group": "分组",
+  "groupHint": "留空则归入「未分组」",
+  "adding": "正在添加…",
+  "addChannelAction": "添加频道",
+  "channelAdded": "已添加频道",
+  "subscriptionsTitle": "订阅管理",
+  "noSubscriptions": "还没有任何订阅",
+  "syncNow": "立即同步",
+  "rename": "改名",
+  "syncDone": "同步完成：{count} 个频道",
+  "@syncDone": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "syncFailed": "同步失败：{error}",
+  "@syncFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "deleteSubscription": "删除订阅",
+  "deleteSubscriptionBody": "删除「{name}」？其 {count} 个频道将一并删除；收藏与观看历史保留。",
+  "@deleteSubscriptionBody": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "kindRemote": "远程 URL",
+  "kindFile": "本地文件",
+  "kindPasted": "粘贴导入",
+  "kindManual": "自定义频道",
+  "neverSynced": "从未同步",
+  "autoSync": "自动同步",
+  "syncUnsupported": "该类型不支持同步",
+  "subscriptionMeta": "{kind} · {count} 个频道 · {sync}",
+  "@subscriptionMeta": {
+    "placeholders": {
+      "kind": { "type": "String" },
+      "count": { "type": "int" },
+      "sync": { "type": "String" }
+    }
+  },
+  "renameSubscription": "订阅改名",
+  "subscriptionName": "订阅名称",
+  "addSubscriptionTitle": "添加订阅",
+  "url": "URL",
+  "localFile": "本地文件",
+  "pastedText": "粘贴文本",
+  "nameLabel": "名称",
+  "nameRequired": "必填",
+  "nameOptional": "留空则自动命名",
+  "pastedNameRequired": "粘贴文本订阅需要名称",
+  "syncing": "正在同步…",
+  "addAndSync": "添加并同步",
+  "playlistUrl": "播放列表 URL",
+  "playlistUrlHint": "https://example.com/list.m3u",
+  "invalidHttpUrl": "请输入合法的 http(s) 地址",
+  "pickPlaylist": "选择 M3U/TXT 文件",
+  "noFilePicked": "尚未选择文件",
+  "m3uContent": "M3U 内容",
+  "m3uHint": "#EXTM3U\\n#EXTINF:-1,频道名\\nhttp://…",
+  "pasteRequired": "请粘贴播放列表内容",
+  "pickFileDialog": "选择播放列表文件",
+  "subscriptionAdded": "已添加订阅，共 {count} 个频道",
+  "@subscriptionAdded": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pickFileFirst": "请先选择文件",
+  "useAddChannel": "自定义频道请使用「添加单频道」入口",
+  "epgTitle": "EPG 节目单",
+  "epgUrl": "XMLTV 源地址",
+  "epgUrlHint": "https://example.com/epg.xml 或 .xml.gz",
+  "epgHelp": "支持 XMLTV 格式（含 .gz 压缩）。留空则关闭 EPG。 vbskycn 已于 2025 年停止 EPG 服务，请自行配置公开源。",
+  "saveAndSync": "保存并同步",
+  "clearEpg": "清除 EPG 数据",
+  "currentSource": "当前源",
+  "notConfigured": "未配置",
+  "programmeCount": "未来 24 小时节目数",
+  "counting": "统计中…",
+  "epgDisabled": "已关闭 EPG",
+  "epgSynced": "EPG 同步完成：{channels} 个频道 / {programmes} 个节目",
+  "@epgSynced": {
+    "placeholders": {
+      "channels": { "type": "int" },
+      "programmes": { "type": "int" }
+    }
+  },
+  "epgCleared": "已清除 EPG 数据",
+  "recordingsTitle": "录制",
+  "noRecordings": "还没有录制文件",
+  "recordingNow": "录制中 · {duration}",
+  "@recordingNow": {
+    "placeholders": { "duration": { "type": "String" } }
+  },
+  "play": "播放",
+  "fileMissing": "文件不存在，可能已被删除",
+  "deleteRecording": "删除录制",
+  "deleteRecordingBody": "删除「{name}」的录制文件？",
+  "@deleteRecordingBody": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "switchedSource": "已切换到源 {index}/{total}：{name}",
+  "@switchedSource": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "total": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "recordingSaved": "录制已保存",
+  "recordingStarted": "开始录制",
+  "recordingFailed": "录制失败：{error}",
+  "@recordingFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "playbackFailed": "播放失败：{error}",
+  "@playbackFailed": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "back": "返回",
+  "nowPlaying": "正在播：{title}",
+  "@nowPlaying": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "backupSource": "备用源：{source}",
+  "@backupSource": {
+    "placeholders": { "source": { "type": "String" } }
+  },
+  "live": "直播",
+  "pause": "暂停",
+  "audioTracks": "音轨",
+  "selectAudio": "选择音轨",
+  "subtitles": "字幕",
+  "selectSubtitle": "选择字幕",
+  "aspectRatio": "画面比例",
+  "playbackSpeed": "播放速度",
+  "stopRecording": "停止录制",
+  "startRecording": "开始录制",
+  "aspectContain": "适应",
+  "aspectCover": "裁剪填满",
+  "aspectFill": "拉伸",
+  "aspectFitWidth": "适应宽度",
+  "aspectFitHeight": "适应高度",
+  "subscriptionsTile": "订阅管理",
+  "subscriptionsTileHint": "启停、改名、删除、手动同步",
+  "epgTileHint": "配置 XMLTV 源，显示「现在/接下来」",
+  "recordingsTile": "录制文件",
+  "recordingsTileHint": "管理本地录制",
+  "syncInterval": "自动同步间隔",
+  "probeConcurrency": "检测并发数",
+  "concurrencyValue": "{count} 路并发",
+  "@concurrencyValue": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "buffer": "播放缓冲",
+  "theme": "主题",
+  "language": "语言",
+  "aboutTile": "关于 zeroTV",
+  "aboutTagline": "开源免费 · 本地优先 · GPL-3.0",
+  "manualOnly": "仅手动",
+  "everyHours": "每 {hours} 小时",
+  "@everyHours": {
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "everyMinutes": "每 {minutes} 分钟",
+  "@everyMinutes": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "themeLight": "浅色",
+  "themeDark": "深色",
+  "themeSystem": "跟随系统",
+  "localeSystem": "跟随系统",
+  "localeZh": "中文",
+  "localeEn": "English",
+  "bufferLow": "低延迟（8 MB）",
+  "bufferBalanced": "均衡（32 MB）",
+  "bufferStable": "稳定（64 MB）",
+  "bufferHigh": "高缓冲（128 MB）",
+  "aboutTitle": "关于 zeroTV",
+  "disclaimerHeading": "免责声明",
+  "disclaimerBody": "zeroTV 是开源免费的本地播放与订阅管理工具，不存储、不分发任何流媒体内容，也没有账号或遥测。频道源由你自行添加；内容的可用性与合法性由源提供方和使用者负责。内置默认源只是一条指向公开播放列表的地址，可以随时停用或删除。",
+  "licenseHeading": "许可证",
+  "licenseBody": "应用代码以 GPL-3.0 发布。播放内核 media_kit / libmpv 为 LGPL，以动态链接方式使用。",
+  "disclaimerDialogTitle": "使用须知",
+  "disclaimerAccept": "我已了解"
+}

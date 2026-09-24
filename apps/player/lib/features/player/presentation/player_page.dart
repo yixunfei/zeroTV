@@ -14,6 +14,7 @@ import 'package:zerotv_player/features/player/presentation/player_osd.dart';
 import 'package:zerotv_player/features/recording/application/manage_recording.dart';
 import 'package:zerotv_player/features/recording/application/providers.dart';
 import 'package:zerotv_player/features/recording/data/stream_recorder.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Fullscreen player page for a single channel.
 ///
@@ -101,7 +102,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '已切换到源 ${_sourceIndex + 1}/${_sources.length}：${_current.name}',
+          AppLocalizations.of(context).switchedSource(
+            _sourceIndex + 1,
+            _sources.length,
+            _current.name,
+          ),
         ),
         duration: const Duration(seconds: 2),
       ),
@@ -184,6 +189,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   Future<void> _toggleRecord() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
     if (_recording != null) {
       final recording = _recording!;
       final handle = _recordingHandle;
@@ -196,7 +202,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       if (handle != null && manage != null) {
         await manage.stop(recording, handle);
       }
-      messenger.showSnackBar(const SnackBar(content: Text('录制已保存')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.recordingSaved)),
+      );
       return;
     }
     final manage = ref.read(manageRecordingProvider);
@@ -211,9 +219,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         _recordingHandle = result.handle;
         _manageRecording = manage;
       });
-      messenger.showSnackBar(const SnackBar(content: Text('开始录制')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.recordingStarted)),
+      );
     } on Object catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('录制失败：$e')));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(l10n.recordingFailed('$e')),
+        ),
+      );
     }
   }
 }
@@ -257,7 +271,7 @@ class _ErrorIndicator extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             color: Colors.black87,
             child: Text(
-              '播放失败：$error',
+              AppLocalizations.of(context).playbackFailed(error),
               style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.center,
             ),
@@ -300,7 +314,7 @@ class _TopBar extends ConsumerWidget {
           children: [
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
-              tooltip: '返回',
+              tooltip: AppLocalizations.of(context).back,
               onPressed: () => context.pop(),
             ),
             Expanded(
@@ -316,7 +330,7 @@ class _TopBar extends ConsumerWidget {
                   ),
                   if (nowTitle != null)
                     Text(
-                      '正在播：$nowTitle',
+                      AppLocalizations.of(context).nowPlaying(nowTitle),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -326,7 +340,9 @@ class _TopBar extends ConsumerWidget {
                     )
                   else if (source.streamUrl != channel.streamUrl)
                     Text(
-                      '备用源：${source.groupTitle ?? source.streamUrl}',
+                      AppLocalizations.of(
+                        context,
+                      ).backupSource(source.groupTitle ?? source.streamUrl),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -343,9 +359,9 @@ class _TopBar extends ConsumerWidget {
                 color: Colors.red,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
-                '直播',
-                style: TextStyle(color: Colors.white, fontSize: 12),
+              child: Text(
+                AppLocalizations.of(context).live,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
           ],
@@ -405,7 +421,9 @@ class _BottomBar extends StatelessWidget {
                   iconSize: 36,
                   color: Colors.white,
                   icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-                  tooltip: playing ? '暂停' : '播放',
+                  tooltip: playing
+                      ? AppLocalizations.of(context).pause
+                      : AppLocalizations.of(context).play,
                   onPressed: player.playOrPause,
                 );
               },
@@ -415,7 +433,9 @@ class _BottomBar extends StatelessWidget {
               icon: Icon(
                 recording ? Icons.stop_circle : Icons.fiber_manual_record,
               ),
-              tooltip: recording ? '停止录制' : '开始录制',
+              tooltip: recording
+                  ? AppLocalizations.of(context).stopRecording
+                  : AppLocalizations.of(context).startRecording,
               onPressed: onToggleRecord,
             ),
             const Spacer(),
@@ -449,10 +469,10 @@ class _AudioTrackButton extends StatelessWidget {
             return IconButton(
               color: Colors.white,
               icon: const Icon(Icons.audiotrack),
-              tooltip: '音轨',
+              tooltip: AppLocalizations.of(context).audioTracks,
               onPressed: () => showTrackMenu<AudioTrack>(
                 context: context,
-                title: '选择音轨',
+                title: AppLocalizations.of(context).selectAudio,
                 tracks: audio,
                 current: current,
                 labelOf: trackLabel,
@@ -485,10 +505,10 @@ class _SubtitleTrackButton extends StatelessWidget {
             return IconButton(
               color: Colors.white,
               icon: const Icon(Icons.subtitles_outlined),
-              tooltip: '字幕',
+              tooltip: AppLocalizations.of(context).subtitles,
               onPressed: () => showTrackMenu<SubtitleTrack>(
                 context: context,
-                title: '选择字幕',
+                title: AppLocalizations.of(context).selectSubtitle,
                 tracks: subs,
                 current: current,
                 labelOf: subtitleLabel,
@@ -512,7 +532,7 @@ class _AspectButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<PlayerAspect>(
       color: Colors.black87,
-      tooltip: '画面比例',
+      tooltip: AppLocalizations.of(context).aspectRatio,
       icon: const Icon(Icons.aspect_ratio, color: Colors.white),
       onSelected: onChanged,
       itemBuilder: (context) => [
@@ -526,7 +546,10 @@ class _AspectButton extends StatelessWidget {
                 else
                   const SizedBox(width: 18),
                 const SizedBox(width: 8),
-                Text(a.label, style: const TextStyle(color: Colors.white)),
+                Text(
+                  _aspectLabel(AppLocalizations.of(context), a),
+                  style: const TextStyle(color: Colors.white),
+                ),
               ],
             ),
           ),
@@ -545,7 +568,7 @@ class _RateButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<double>(
       color: Colors.black87,
-      tooltip: '播放速度',
+      tooltip: AppLocalizations.of(context).playbackSpeed,
       icon: Text(
         '${rate}x',
         style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -569,4 +592,14 @@ class _RateButton extends StatelessWidget {
       ],
     );
   }
+}
+
+String _aspectLabel(AppLocalizations l10n, PlayerAspect aspect) {
+  return switch (aspect) {
+    PlayerAspect.contain => l10n.aspectContain,
+    PlayerAspect.cover => l10n.aspectCover,
+    PlayerAspect.fill => l10n.aspectFill,
+    PlayerAspect.fitWidth => l10n.aspectFitWidth,
+    PlayerAspect.fitHeight => l10n.aspectFitHeight,
+  };
 }

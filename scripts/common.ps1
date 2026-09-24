@@ -90,13 +90,17 @@ function Invoke-PubGetAll {
 function Invoke-Codegen {
   <#
   .SYNOPSIS
-    drift 代码生成（*.g.dart 不入库，构建/分析/测试前必须先跑）。
+    drift 与 gen-l10n 代码生成（生成物不入库，构建/分析/测试前必须先跑）。
   #>
   Invoke-Step 'build_runner (drift)' {
     Push-Location $Script:AppDir
     try {
       dart run build_runner build --delete-conflicting-outputs
     } finally { Pop-Location }
+  }
+  Invoke-Step 'gen-l10n' {
+    Push-Location $Script:AppDir
+    try { flutter gen-l10n } finally { Pop-Location }
   }
 }
 

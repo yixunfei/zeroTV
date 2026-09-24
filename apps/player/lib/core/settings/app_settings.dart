@@ -9,6 +9,8 @@ class AppSettings {
     this.probeConcurrency = 16,
     this.bufferSizeBytes = 32 * 1024 * 1024,
     this.themeMode = ThemeMode.system,
+    this.disclaimerAccepted = false,
+    this.locale,
   });
 
   /// How often subscriptions auto-sync; null means manual only.
@@ -23,6 +25,12 @@ class AppSettings {
   /// App-wide theme mode.
   final ThemeMode themeMode;
 
+  /// Whether the user has acknowledged the first-run disclaimer.
+  final bool disclaimerAccepted;
+
+  /// Explicit UI locale; null follows the system locale.
+  final Locale? locale;
+
   /// Returns a copy with the given fields replaced.
   AppSettings copyWith({
     Duration? syncInterval,
@@ -30,6 +38,9 @@ class AppSettings {
     int? probeConcurrency,
     int? bufferSizeBytes,
     ThemeMode? themeMode,
+    bool? disclaimerAccepted,
+    Locale? locale,
+    bool clearLocale = false,
   }) {
     return AppSettings(
       syncInterval: clearSyncInterval
@@ -38,6 +49,8 @@ class AppSettings {
       probeConcurrency: probeConcurrency ?? this.probeConcurrency,
       bufferSizeBytes: bufferSizeBytes ?? this.bufferSizeBytes,
       themeMode: themeMode ?? this.themeMode,
+      disclaimerAccepted: disclaimerAccepted ?? this.disclaimerAccepted,
+      locale: clearLocale ? null : (locale ?? this.locale),
     );
   }
 }
@@ -51,6 +64,8 @@ class AppSettingsStore {
   static const _concurrencyKey = 'settings.probeConcurrency';
   static const _bufferKey = 'settings.bufferSizeBytes';
   static const _themeKey = 'settings.themeMode';
+  static const _disclaimerKey = 'settings.disclaimerAccepted';
+  static const _localeKey = 'settings.locale';
 
   final SharedPreferences _prefs;
 
@@ -64,6 +79,8 @@ class AppSettingsStore {
       probeConcurrency: _prefs.getInt(_concurrencyKey) ?? 16,
       bufferSizeBytes: _prefs.getInt(_bufferKey) ?? 32 * 1024 * 1024,
       themeMode: _decodeTheme(_prefs.getString(_themeKey)),
+      disclaimerAccepted: _prefs.getBool(_disclaimerKey) ?? false,
+      locale: _decodeLocale(_prefs.getString(_localeKey)),
     );
   }
 
@@ -78,10 +95,25 @@ class AppSettingsStore {
     await _prefs.setInt(_concurrencyKey, settings.probeConcurrency);
     await _prefs.setInt(_bufferKey, settings.bufferSizeBytes);
     await _prefs.setString(_themeKey, settings.themeMode.name);
+    await _prefs.setBool(_disclaimerKey, settings.disclaimerAccepted);
+    final code = settings.locale?.languageCode;
+    if (code == null) {
+      await _prefs.remove(_localeKey);
+    } else {
+      await _prefs.setString(_localeKey, code);
+    }
   }
 
   Duration? _decodeSync(int minutes) =>
       minutes <= 0 ? null : Duration(minutes: minutes);
+
+  Locale? _decodeLocale(String? code) {
+    return switch (code) {
+      'zh' => const Locale('zh'),
+      'en' => const Locale('en'),
+      _ => null,
+    };
+  }
 
   ThemeMode _decodeTheme(String? name) {
     return switch (name) {

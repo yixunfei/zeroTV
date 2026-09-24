@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iptv_core/iptv_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/channel/presentation/channel_list_page.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
@@ -16,6 +18,7 @@ import '../../../helpers/fake_favorites_repository.dart';
 import '../../../helpers/fake_probe_result_repository.dart';
 import '../../../helpers/fake_subscription_repository.dart';
 import '../../../helpers/fake_watch_history_repository.dart';
+import '../../../helpers/localized_app.dart';
 
 void main() {
   const seedChannels = [
@@ -36,9 +39,14 @@ void main() {
   }) async {
     favorites = FakeFavoritesRepository(favoriteKeys);
     history = FakeWatchHistoryRepository(historyEntries);
+    SharedPreferences.setMockInitialValues({
+      'settings.disclaimerAccepted': true,
+    });
+    final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
           channelRepositoryProvider.overrideWithValue(
             FakeChannelRepository(
               channels: seedChannels,
@@ -66,7 +74,7 @@ void main() {
           ),
           bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
         ],
-        child: const MaterialApp(home: ChannelListPage()),
+        child: localizedApp(home: const ChannelListPage()),
       ),
     );
     for (var i = 0; i < 5; i++) {

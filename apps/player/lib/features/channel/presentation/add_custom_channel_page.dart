@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/application/custom_channel_providers.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Page for adding one hand-entered channel to the "my channels" list.
 class AddCustomChannelPage extends ConsumerStatefulWidget {
@@ -32,8 +33,9 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('添加单频道')),
+      appBar: AppBar(title: Text(l10n.addChannelTitle)),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -41,27 +43,28 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: '频道名称',
-                hintText: '如：CCTV-1',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.channelName,
+                hintText: l10n.channelNameHint,
+                border: const OutlineInputBorder(),
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '请输入频道名称' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? l10n.channelNameRequired
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _urlController,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: '流地址',
-                hintText: 'http://… 或 rtsp://… / rtp://…',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.streamUrl,
+                hintText: l10n.streamUrlHint,
+                border: const OutlineInputBorder(),
               ),
               validator: (v) {
                 final uri = Uri.tryParse(v?.trim() ?? '');
                 if (uri == null || !uri.hasScheme) {
-                  return '请输入带协议的流地址';
+                  return l10n.streamUrlInvalid;
                 }
                 return null;
               },
@@ -69,10 +72,10 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _groupController,
-              decoration: const InputDecoration(
-                labelText: '分组',
-                hintText: '留空则归入「未分组」',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.group,
+                hintText: l10n.groupHint,
+                border: const OutlineInputBorder(),
               ),
             ),
             if (_error != null) ...[
@@ -92,7 +95,7 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.check),
-              label: Text(_submitting ? '正在添加…' : '添加频道'),
+              label: Text(_submitting ? l10n.adding : l10n.addChannelAction),
             ),
           ],
         ),
@@ -117,7 +120,9 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('已添加频道')));
+      ).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).channelAdded)),
+      );
       context.pop();
     } on Object catch (e) {
       if (!mounted) return;

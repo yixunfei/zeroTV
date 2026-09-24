@@ -4,24 +4,21 @@ import 'package:media_kit/media_kit.dart';
 /// Aspect-ratio presets offered by the player OSD, mapped to [BoxFit].
 enum PlayerAspect {
   /// Preserve aspect ratio, letterboxed (default).
-  contain('适应', BoxFit.contain),
+  contain(BoxFit.contain),
 
   /// Preserve aspect ratio, cropped to fill.
-  cover('裁剪填满', BoxFit.cover),
+  cover(BoxFit.cover),
 
   /// Stretch to fill (ignores aspect ratio).
-  fill('拉伸', BoxFit.fill),
+  fill(BoxFit.fill),
 
   /// Fit width, may overflow vertically.
-  fitWidth('适应宽度', BoxFit.fitWidth),
+  fitWidth(BoxFit.fitWidth),
 
   /// Fit height, may overflow horizontally.
-  fitHeight('适应高度', BoxFit.fitHeight);
+  fitHeight(BoxFit.fitHeight);
 
-  const PlayerAspect(this.label, this.fit);
-
-  /// Menu label.
-  final String label;
+  const PlayerAspect(this.fit);
 
   /// The corresponding [BoxFit].
   final BoxFit fit;

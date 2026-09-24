@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/recording/application/providers.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Lists, plays (best-effort) and deletes local recordings.
 class RecordingsPage extends ConsumerWidget {
@@ -14,18 +15,21 @@ class RecordingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final recordings = ref.watch(recordingsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('录制')),
+      appBar: AppBar(title: Text(l10n.recordingsTitle)),
       body: switch (recordings) {
-        AsyncData(:final value) when value.isEmpty => const Center(
-          child: Text('还没有录制文件'),
+        AsyncData(:final value) when value.isEmpty => Center(
+          child: Text(l10n.noRecordings),
         ),
         AsyncData(:final value) => ListView.builder(
           itemCount: value.length,
           itemBuilder: (context, i) => _RecordingTile(recording: value[i]),
         ),
-        AsyncError(:final error) => Center(child: Text('加载失败：$error')),
+        AsyncError(:final error) => Center(
+          child: Text(l10n.loadFailed('$error')),
+        ),
         _ => const Center(child: CircularProgressIndicator()),
       },
     );
@@ -41,8 +45,9 @@ class _RecordingTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final duration = recording.durationAt(now);
+    final l10n = AppLocalizations.of(context);
     final subtitle = recording.isRecording
-        ? '录制中 · ${_fmt(duration)}'
+        ? l10n.recordingNow(_fmt(duration))
         : '${_fmt(duration)} · ${_size(recording.sizeBytes)}';
     return ListTile(
       leading: Icon(
@@ -58,12 +63,12 @@ class _RecordingTile extends ConsumerWidget {
         children: [
           IconButton(
             icon: const Icon(Icons.play_arrow),
-            tooltip: '播放',
+            tooltip: l10n.play,
             onPressed: () => _play(context, ref),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            tooltip: '删除',
+            tooltip: l10n.delete,
             onPressed: () => unawaited(_confirmDelete(context, ref)),
           ),
         ],
@@ -77,7 +82,9 @@ class _RecordingTile extends ConsumerWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('文件不存在，可能已被删除')));
+      ).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context).fileMissing)),
+      );
       return;
     }
     final channel = Channel(
@@ -91,20 +98,23 @@ class _RecordingTile extends ConsumerWidget {
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('删除录制'),
-        content: Text('删除「${recording.channelName}」的录制文件？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n.deleteRecording),
+          content: Text(l10n.deleteRecordingBody(recording.channelName)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(l10n.delete),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed ?? false) {
       await ref.read(manageRecordingProvider).delete(recording);

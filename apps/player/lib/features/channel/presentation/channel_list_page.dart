@@ -12,7 +12,9 @@ import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/run_availability_probe.dart';
 import 'package:zerotv_player/features/epg/application/epg_guide.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
+import 'package:zerotv_player/features/settings/presentation/disclaimer_gate.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Home page: grouped channel list, gated on first-run bootstrap
 /// (default-source seeding + initial sync).
@@ -50,12 +52,22 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(maybeShowDisclaimer(context, ref));
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     ref.listen(bootstrapProvider, (_, next) {
       final failures = next.value;
       if (failures != null && failures.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${failures.length} 个订阅同步失败，已保留旧数据')),
+          SnackBar(content: Text(l10n.syncFailedKeep(failures.length))),
         );
       }
     });
@@ -66,24 +78,24 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
             ? TextField(
                 controller: _searchController,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: '搜索频道…',
+                decoration: InputDecoration(
+                  hintText: l10n.searchHint,
                   border: InputBorder.none,
                 ),
                 onChanged: _onQueryChanged,
               )
-            : const Text('zeroTV'),
+            : Text(l10n.appTitle),
         actions: [
           if (_searching)
             IconButton(
               icon: const Icon(Icons.close),
-              tooltip: '退出搜索',
+              tooltip: l10n.exitSearch,
               onPressed: _exitSearch,
             )
           else ...[
             IconButton(
               icon: const Icon(Icons.search),
-              tooltip: '搜索',
+              tooltip: l10n.search,
               onPressed: _enterSearch,
             ),
             _ScanButton(
@@ -96,14 +108,14 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
             ),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
-              tooltip: '设置',
+              tooltip: l10n.settings,
               onPressed: () => context.goNamed('settings'),
             ),
           ],
         ],
       ),
       body: switch (bootstrap) {
-        AsyncLoading() => const _BootHint('正在同步订阅源…'),
+        AsyncLoading() => _BootHint(l10n.syncingSources),
         AsyncError(:final error) => _BootError(error: error),
         AsyncData() => const _ChannelBrowser(),
       },
@@ -116,19 +128,19 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
               controller.open();
             }
           },
-          tooltip: '添加',
+          tooltip: l10n.add,
           child: const Icon(Icons.add),
         ),
         menuChildren: [
           MenuItemButton(
             leadingIcon: const Icon(Icons.playlist_add),
             onPressed: () => context.pushNamed('add-subscription'),
-            child: const Text('添加订阅'),
+            child: Text(l10n.addSubscription),
           ),
           MenuItemButton(
             leadingIcon: const Icon(Icons.add_to_queue),
             onPressed: () => context.pushNamed('add-channel'),
-            child: const Text('添加单频道'),
+            child: Text(l10n.addChannel),
           ),
         ],
       ),
@@ -169,7 +181,10 @@ class _BootError extends ConsumerWidget {
         children: [
           const Icon(Icons.cloud_off_outlined, size: 48),
           const SizedBox(height: 12),
-          Text('订阅源同步失败', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            AppLocalizations.of(context).syncFailedTitle,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -183,7 +198,7 @@ class _BootError extends ConsumerWidget {
           FilledButton.icon(
             onPressed: () => ref.invalidate(bootstrapProvider),
             icon: const Icon(Icons.refresh),
-            label: const Text('重试'),
+            label: Text(AppLocalizations.of(context).retry),
           ),
         ],
       ),
@@ -228,28 +243,28 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: [
                 _FilterChip(
-                  label: '全部',
+                  label: AppLocalizations.of(context).filterAll,
                   selected: filter is FilterAll,
                   onSelected: () =>
                       ref.read(channelFilterProvider.notifier).current =
                           const FilterAll(),
                 ),
                 _FilterChip(
-                  label: '收藏',
+                  label: AppLocalizations.of(context).filterFavorites,
                   selected: filter is FilterFavorites,
                   onSelected: () =>
                       ref.read(channelFilterProvider.notifier).current =
                           const FilterFavorites(),
                 ),
                 _FilterChip(
-                  label: '最近',
+                  label: AppLocalizations.of(context).filterRecent,
                   selected: filter is FilterRecent,
                   onSelected: () =>
                       ref.read(channelFilterProvider.notifier).current =
                           const FilterRecent(),
                 ),
                 _FilterChip(
-                  label: '可用',
+                  label: AppLocalizations.of(context).filterAvailable,
                   selected: filter is FilterAvailable,
                   onSelected: () =>
                       ref.read(channelFilterProvider.notifier).current =
@@ -273,7 +288,9 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
               filter: filter,
             ),
             AsyncData(:final value) => _ChannelList(channels: value),
-            AsyncError(:final error) => Center(child: Text('加载失败：$error')),
+            AsyncError(:final error) => Center(
+              child: Text(AppLocalizations.of(context).loadFailed('$error')),
+            ),
             _ => const Center(child: CircularProgressIndicator()),
           },
         ),
@@ -295,11 +312,11 @@ class _ResumeBanner extends StatelessWidget {
       color: theme.colorScheme.surfaceContainerHighest,
       child: ListTile(
         leading: const Icon(Icons.play_circle_outline),
-        title: Text('继续观看：${channel.name}'),
-        subtitle: const Text('点按回到上次收看的频道'),
+        title: Text(AppLocalizations.of(context).resumeTitle(channel.name)),
+        subtitle: Text(AppLocalizations.of(context).resumeSubtitle),
         trailing: IconButton(
           icon: const Icon(Icons.close),
-          tooltip: '关闭',
+          tooltip: AppLocalizations.of(context).close,
           onPressed: onDismiss,
         ),
         onTap: () => context.pushNamed('player', extra: channel),
@@ -354,7 +371,7 @@ class _ScanButton extends ConsumerWidget {
     }
     return IconButton(
       icon: const Icon(Icons.network_check_outlined),
-      tooltip: '检测可用性',
+      tooltip: AppLocalizations.of(context).probeScan,
       onPressed: onStart,
     );
   }
@@ -380,7 +397,11 @@ class _ScanProgressBanner extends StatelessWidget {
               children: [
                 const Icon(Icons.wifi_tethering, size: 18),
                 const SizedBox(width: 8),
-                Text('正在检测可用性 ${progress.completed}/$total'),
+                Text(
+                  AppLocalizations.of(
+                    context,
+                  ).probeScanning(progress.completed, total),
+                ),
               ],
             ),
           ),
@@ -443,7 +464,9 @@ class _ChannelTile extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text(channel.groupTitle ?? ungroupedGroupLabel),
+              Text(
+                channel.groupTitle ?? AppLocalizations.of(context).ungrouped,
+              ),
               if (probe != null) ...[
                 const SizedBox(width: 8),
                 _ProbeStatusDot(status: probe.status),
@@ -462,14 +485,16 @@ class _ChannelTile extends ConsumerWidget {
               isFavorite ? Icons.star : Icons.star_border,
               color: isFavorite ? Colors.amber : null,
             ),
-            tooltip: isFavorite ? '取消收藏' : '收藏',
+            tooltip: isFavorite
+                ? AppLocalizations.of(context).unfavorite
+                : AppLocalizations.of(context).favorite,
             onPressed: () =>
                 unawaited(ref.read(toggleFavoriteProvider)(channel)),
           ),
           if (isManual)
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              tooltip: '删除频道',
+              tooltip: AppLocalizations.of(context).deleteChannel,
               onPressed: () => unawaited(_confirmDelete(context, ref)),
             ),
         ],
@@ -482,16 +507,18 @@ class _ChannelTile extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除频道'),
-        content: Text('从「我的频道」移除「${channel.name}」？'),
+        title: Text(AppLocalizations.of(context).deleteChannel),
+        content: Text(
+          AppLocalizations.of(context).deleteChannelBody(channel.name),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
+            child: Text(AppLocalizations.of(context).delete),
           ),
         ],
       ),
@@ -516,10 +543,11 @@ class _NowNextLine extends StatelessWidget {
     );
     final now = nowNext.now?.title;
     final next = nowNext.next?.title;
+    final l10n = AppLocalizations.of(context);
     final text = switch ((now, next)) {
-      (final n?, final x?) => '正在播：$n · 接下来：$x',
-      (final n?, null) => '正在播：$n',
-      (null, final x?) => '接下来：$x',
+      (final n?, final x?) => l10n.nowNextBoth(n, x),
+      (final n?, null) => l10n.nowOnly(n),
+      (null, final x?) => l10n.nextOnly(x),
       _ => '',
     };
     if (text.isEmpty) return const SizedBox.shrink();
@@ -540,11 +568,12 @@ class _ProbeStatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final (color, label) = switch (status) {
-      ProbeStatus.ok => (Colors.green, '可用'),
-      ProbeStatus.timeout => (Colors.orange, '超时'),
-      ProbeStatus.dead => (Colors.red, '失效'),
-      ProbeStatus.unsupported => (Colors.grey, '不支持检测'),
+      ProbeStatus.ok => (Colors.green, l10n.probeOk),
+      ProbeStatus.timeout => (Colors.orange, l10n.probeTimeout),
+      ProbeStatus.dead => (Colors.red, l10n.probeDead),
+      ProbeStatus.unsupported => (Colors.grey, l10n.probeUnsupported),
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -568,12 +597,16 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final (title, hint) = switch (filter) {
-      FilterFavorites() => ('还没有收藏频道', '点频道右侧的星标即可收藏'),
-      FilterRecent() => ('还没有观看记录', '播放过的频道会出现在这里'),
-      FilterSearch(:final query) => ('没有找到「$query」', '换个关键字试试'),
-      FilterAvailable() => ('还没有可用频道', '先运行可用性检测，或稍后重试'),
-      _ => ('还没有任何频道', '添加订阅源后即可开始观看'),
+      FilterFavorites() => (l10n.emptyFavoritesTitle, l10n.emptyFavoritesHint),
+      FilterRecent() => (l10n.emptyRecentTitle, l10n.emptyRecentHint),
+      FilterSearch(:final query) => (
+        l10n.emptySearchTitle(query),
+        l10n.emptySearchHint,
+      ),
+      FilterAvailable() => (l10n.emptyAvailableTitle, l10n.emptyAvailableHint),
+      _ => (l10n.emptyChannelsTitle, l10n.emptyChannelsHint),
     };
     final theme = Theme.of(context);
     return Center(

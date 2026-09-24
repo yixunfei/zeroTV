@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
+import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Page for configuring the EPG feed URL and syncing it.
 class EpgSettingsPage extends ConsumerStatefulWidget {
@@ -30,26 +31,26 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final url = ref.watch(epgUrlProvider);
     final count = ref.watch(epgProgrammeCountProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('EPG 节目单')),
+      appBar: AppBar(title: Text(l10n.epgTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
             controller: _controller,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: 'XMLTV 源地址',
-              hintText: 'https://example.com/epg.xml 或 .xml.gz',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l10n.epgUrl,
+              hintText: l10n.epgUrlHint,
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '支持 XMLTV 格式（含 .gz 压缩）。留空则关闭 EPG。'
-            ' vbskycn 已于 2025 年停止 EPG 服务，请自行配置公开源。',
+            l10n.epgHelp,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (_error != null) ...[
@@ -69,28 +70,28 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.sync),
-            label: Text(_submitting ? '正在同步…' : '保存并同步'),
+            label: Text(_submitting ? l10n.syncing : l10n.saveAndSync),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _submitting ? null : _clear,
             icon: const Icon(Icons.delete_outline),
-            label: const Text('清除 EPG 数据'),
+            label: Text(l10n.clearEpg),
           ),
           const Divider(height: 32),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event_available_outlined),
-            title: const Text('当前源'),
-            subtitle: Text(url?.toString() ?? '未配置'),
+            title: Text(l10n.currentSource),
+            subtitle: Text(url?.toString() ?? l10n.notConfigured),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.schedule_outlined),
-            title: const Text('未来 24 小时节目数'),
+            title: Text(l10n.programmeCount),
             subtitle: count.when(
               data: (n) => Text('$n'),
-              loading: () => const Text('统计中…'),
+              loading: () => Text(l10n.counting),
               error: (e, _) => Text('$e'),
             ),
           ),
@@ -112,10 +113,10 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
         ..invalidate(epgProgrammeCountProvider)
         ..invalidate(nowNextByEpgIdProvider);
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       final message = feed == null
-          ? '已关闭 EPG'
-          : 'EPG 同步完成：${feed.channels.length} 个频道 / '
-                '${feed.programmes.length} 个节目';
+          ? l10n.epgDisabled
+          : l10n.epgSynced(feed.channels.length, feed.programmes.length);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -137,6 +138,8 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
     _controller.clear();
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('已清除 EPG 数据')));
+    ).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).epgCleared)),
+    );
   }
 }

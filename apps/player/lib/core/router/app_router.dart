@@ -6,6 +6,7 @@ import 'package:zerotv_player/features/channel/presentation/channel_list_page.da
 import 'package:zerotv_player/features/epg/presentation/epg_settings_page.dart';
 import 'package:zerotv_player/features/player/presentation/player_page.dart';
 import 'package:zerotv_player/features/recording/presentation/recordings_page.dart';
+import 'package:zerotv_player/features/settings/presentation/about_page.dart';
 import 'package:zerotv_player/features/settings/presentation/settings_page.dart';
 import 'package:zerotv_player/features/subscription/presentation/add_subscription_page.dart';
 import 'package:zerotv_player/features/subscription/presentation/subscriptions_page.dart';
@@ -24,6 +25,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/about',
+        name: 'about',
+        builder: (context, state) => const AboutPage(),
       ),
       GoRoute(
         path: '/settings/subscriptions',

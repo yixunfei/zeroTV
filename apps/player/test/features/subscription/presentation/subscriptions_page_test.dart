@@ -8,6 +8,7 @@ import 'package:zerotv_player/features/subscription/presentation/subscriptions_p
 
 import '../../../helpers/fake_channel_repository.dart';
 import '../../../helpers/fake_subscription_repository.dart';
+import '../../../helpers/localized_app.dart';
 
 void main() {
   final remote = Subscription(
@@ -36,7 +37,7 @@ void main() {
             FakeChannelRepository(counts: const {'s1': 120, 's2': 3}),
           ),
         ],
-        child: const MaterialApp(home: SubscriptionsPage()),
+        child: localizedApp(home: const SubscriptionsPage()),
       ),
     );
     for (var i = 0; i < 5; i++) {

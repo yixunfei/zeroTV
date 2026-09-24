@@ -48,4 +48,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setThemeMode(ThemeMode mode) {
     return update(state.copyWith(themeMode: mode));
   }
+
+  /// Records that the first-run disclaimer was acknowledged.
+  Future<void> acceptDisclaimer() {
+    return update(state.copyWith(disclaimerAccepted: true));
+  }
+
+  /// Sets the UI locale; null follows the system locale.
+  Future<void> setLocale(Locale? locale) {
+    return update(
+      state.copyWith(locale: locale, clearLocale: locale == null),
+    );
+  }
 }
