@@ -9,6 +9,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
+import 'package:zerotv_player/features/player/presentation/player_osd.dart';
 
 /// Fullscreen player page for a single channel.
 ///
@@ -33,6 +34,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   late final StreamSubscription<String> _errorSub;
   bool _showControls = true;
   bool _recorded = false;
+  PlayerAspect _aspect = PlayerAspect.contain;
+  double _rate = 1;
 
   /// Ordered sources to try, resolved once on first build.
   List<Channel> _sources = const [];
@@ -131,6 +134,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
           children: [
             Video(
               controller: _controller,
+              fit: _aspect.fit,
               controls: (state) => const SizedBox.shrink(),
             ),
             _BufferingIndicator(player: _player),
@@ -140,12 +144,24 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             ),
             if (_showControls) ...[
               _TopBar(channel: widget.channel, source: _current),
-              _BottomBar(player: _player),
+              _BottomBar(
+                player: _player,
+                aspect: _aspect,
+                rate: _rate,
+                onAspectChanged: (a) => setState(() => _aspect = a),
+                onRateChanged: _setRate,
+              ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _setRate(double rate) async {
+    await _player.setRate(rate);
+    if (!mounted) return;
+    setState(() => _rate = rate);
   }
 }
 
@@ -287,9 +303,19 @@ class _TopBar extends ConsumerWidget {
 }
 
 class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.player});
+  const _BottomBar({
+    required this.player,
+    required this.aspect,
+    required this.rate,
+    required this.onAspectChanged,
+    required this.onRateChanged,
+  });
 
   final Player player;
+  final PlayerAspect aspect;
+  final double rate;
+  final ValueChanged<PlayerAspect> onAspectChanged;
+  final ValueChanged<double> onRateChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -327,9 +353,155 @@ class _BottomBar extends StatelessWidget {
                 );
               },
             ),
+            const Spacer(),
+            _AudioTrackButton(player: player),
+            _SubtitleTrackButton(player: player),
+            _AspectButton(aspect: aspect, onChanged: onAspectChanged),
+            _RateButton(rate: rate, onChanged: onRateChanged),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AudioTrackButton extends StatelessWidget {
+  const _AudioTrackButton({required this.player});
+
+  final Player player;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Tracks>(
+      stream: player.stream.tracks,
+      builder: (context, tracksSnap) {
+        final audio = tracksSnap.data?.audio ?? const <AudioTrack>[];
+        if (audio.length <= 1) return const SizedBox.shrink();
+        return StreamBuilder<Track>(
+          stream: player.stream.track,
+          builder: (context, trackSnap) {
+            final current = trackSnap.data?.audio ?? audio.first;
+            return IconButton(
+              color: Colors.white,
+              icon: const Icon(Icons.audiotrack),
+              tooltip: '音轨',
+              onPressed: () => showTrackMenu<AudioTrack>(
+                context: context,
+                title: '选择音轨',
+                tracks: audio,
+                current: current,
+                labelOf: trackLabel,
+                onSelected: player.setAudioTrack,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SubtitleTrackButton extends StatelessWidget {
+  const _SubtitleTrackButton({required this.player});
+
+  final Player player;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Tracks>(
+      stream: player.stream.tracks,
+      builder: (context, tracksSnap) {
+        final subs = tracksSnap.data?.subtitle ?? const <SubtitleTrack>[];
+        if (subs.length <= 1) return const SizedBox.shrink();
+        return StreamBuilder<Track>(
+          stream: player.stream.track,
+          builder: (context, trackSnap) {
+            final current = trackSnap.data?.subtitle ?? subs.first;
+            return IconButton(
+              color: Colors.white,
+              icon: const Icon(Icons.subtitles_outlined),
+              tooltip: '字幕',
+              onPressed: () => showTrackMenu<SubtitleTrack>(
+                context: context,
+                title: '选择字幕',
+                tracks: subs,
+                current: current,
+                labelOf: subtitleLabel,
+                onSelected: player.setSubtitleTrack,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _AspectButton extends StatelessWidget {
+  const _AspectButton({required this.aspect, required this.onChanged});
+
+  final PlayerAspect aspect;
+  final ValueChanged<PlayerAspect> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<PlayerAspect>(
+      color: Colors.black87,
+      tooltip: '画面比例',
+      icon: const Icon(Icons.aspect_ratio, color: Colors.white),
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        for (final a in PlayerAspect.values)
+          PopupMenuItem(
+            value: a,
+            child: Row(
+              children: [
+                if (a == aspect)
+                  const Icon(Icons.check, size: 18, color: Colors.white)
+                else
+                  const SizedBox(width: 18),
+                const SizedBox(width: 8),
+                Text(a.label, style: const TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RateButton extends StatelessWidget {
+  const _RateButton({required this.rate, required this.onChanged});
+
+  final double rate;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<double>(
+      color: Colors.black87,
+      tooltip: '播放速度',
+      icon: Text(
+        '${rate}x',
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+      ),
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        for (final r in playerRatePresets)
+          PopupMenuItem(
+            value: r,
+            child: Row(
+              children: [
+                if (r == rate)
+                  const Icon(Icons.check, size: 18, color: Colors.white)
+                else
+                  const SizedBox(width: 18),
+                const SizedBox(width: 8),
+                Text('${r}x', style: const TextStyle(color: Colors.white)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
