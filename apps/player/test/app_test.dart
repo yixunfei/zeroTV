@@ -6,17 +6,25 @@ import 'package:zerotv_player/features/subscription/application/auto_sync_servic
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 import 'helpers/fake_channel_repository.dart';
+import 'helpers/fake_favorites_repository.dart';
+import 'helpers/fake_watch_history_repository.dart';
 
 void main() {
-  /// Pumps the full app with a no-op bootstrap and an in-memory channel
-  /// repository (live drift streams are covered by repository unit tests
-  /// and intentionally avoided in widget tests).
+  /// Pumps the full app with a no-op bootstrap and in-memory
+  /// repositories (live drift streams are covered by repository unit
+  /// tests and intentionally avoided in widget tests).
   Future<void> pumpTestApp(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           channelRepositoryProvider.overrideWithValue(
             FakeChannelRepository(),
+          ),
+          favoritesRepositoryProvider.overrideWithValue(
+            FakeFavoritesRepository(),
+          ),
+          watchHistoryRepositoryProvider.overrideWithValue(
+            FakeWatchHistoryRepository(),
           ),
           bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
         ],

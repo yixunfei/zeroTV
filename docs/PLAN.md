@@ -251,5 +251,11 @@ App 本体仍不存储/分发任何频道内容，只内置"指向公开列表�
    read-modify-write 覆盖 `lastSyncedAt`）与 `watchCountsBySubscription`。
    **默认源复活修复**：seeder 改 shared_preferences 一次性标志（见 4.6）。
    analyze + 全部测试绿（app 33 例，含管理页 widget 5 例与复活回归测试）。
-5. 下一步 M2 剩余：WorkManager 后台同步（Android）+ Windows 启动时同步补齐、
-   收藏与最近观看、搜索、自定义添加单频道、stream_probe 批量检测接 UI。
+5. ~~M2-3 收藏与最近观看~~ 已完成（2026-09-22）：chips 行新增「收藏/最近」
+   特殊分组（过滤器重构为 sealed ChannelFilter）；频道 tile 星标切换收藏；
+   播放页首次 playing 时回写观看历史（播放失败不记）。新增 FavoritesRepository /
+   WatchHistoryRepository 端口（按 identityKey 独立存表，同步替换不丢），
+   无 schema 变更。analyze + 全部测试绿（app 43 例）。
+6. 下一步 M2 剩余：WorkManager 后台同步（Android）+ Windows 启动时同步补齐、
+   频道搜索、自定义添加单频道、stream_probe 批量检测接 UI、
+   「上次观看」恢复（历史已在记录，接恢复入口即可）。

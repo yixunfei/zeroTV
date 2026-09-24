@@ -1,14 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:zerotv_player/features/channel/application/providers.dart';
 
 /// Fullscreen player page for a single channel (single-stream playback;
 /// multi-source failover lands in M3).
-class PlayerPage extends StatefulWidget {
+class PlayerPage extends ConsumerStatefulWidget {
   /// Creates the page.
   const PlayerPage({required this.channel, super.key});
 
@@ -16,19 +18,23 @@ class PlayerPage extends StatefulWidget {
   final Channel channel;
 
   @override
-  State<PlayerPage> createState() => _PlayerPageState();
+  ConsumerState<PlayerPage> createState() => _PlayerPageState();
 }
 
-class _PlayerPageState extends State<PlayerPage> {
+class _PlayerPageState extends ConsumerState<PlayerPage> {
   late final Player _player;
   late final VideoController _controller;
+  late final StreamSubscription<bool> _playingSub;
   bool _showControls = true;
+  bool _recorded = false;
 
   @override
   void initState() {
     super.initState();
     _player = Player();
     _controller = VideoController(_player);
+    // Record watch history only once playback actually starts.
+    _playingSub = _player.stream.playing.listen(_recordHistoryOnce);
     unawaited(
       _player.open(
         Media(
@@ -39,8 +45,25 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
+  void _recordHistoryOnce(bool playing) {
+    if (!playing || _recorded) return;
+    _recorded = true;
+    unawaited(
+      ref
+          .read(watchHistoryRepositoryProvider)
+          .record(
+            HistoryEntry(
+              channelKey: widget.channel.identityKey,
+              channelName: widget.channel.name,
+              watchedAt: DateTime.now(),
+            ),
+          ),
+    );
+  }
+
   @override
   void dispose() {
+    unawaited(_playingSub.cancel());
     unawaited(_player.dispose());
     super.dispose();
   }

@@ -1,7 +1,10 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
+import 'package:zerotv_player/features/channel/application/channel_filter.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
@@ -108,7 +111,7 @@ class _ChannelBrowser extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groups = ref.watch(allGroupsProvider).value ?? const <String>[];
-    final selected = ref.watch(selectedGroupProvider);
+    final filter = ref.watch(channelFilterProvider);
     final channelsAsync = ref.watch(filteredChannelsProvider);
     return Column(
       children: [
@@ -118,18 +121,34 @@ class _ChannelBrowser extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             children: [
-              _GroupChip(
+              _FilterChip(
                 label: '全部',
-                selected: selected == null,
+                selected: filter is FilterAll,
                 onSelected: () =>
-                    ref.read(selectedGroupProvider.notifier).current = null,
+                    ref.read(channelFilterProvider.notifier).current =
+                        const FilterAll(),
+              ),
+              _FilterChip(
+                label: '收藏',
+                selected: filter is FilterFavorites,
+                onSelected: () =>
+                    ref.read(channelFilterProvider.notifier).current =
+                        const FilterFavorites(),
+              ),
+              _FilterChip(
+                label: '最近',
+                selected: filter is FilterRecent,
+                onSelected: () =>
+                    ref.read(channelFilterProvider.notifier).current =
+                        const FilterRecent(),
               ),
               for (final g in groups)
-                _GroupChip(
+                _FilterChip(
                   label: g,
-                  selected: selected == g,
+                  selected: filter is FilterGroup && filter.group == g,
                   onSelected: () =>
-                      ref.read(selectedGroupProvider.notifier).current = g,
+                      ref.read(channelFilterProvider.notifier).current =
+                          FilterGroup(g),
                 ),
             ],
           ),
@@ -137,7 +156,9 @@ class _ChannelBrowser extends ConsumerWidget {
         const Divider(height: 1),
         Expanded(
           child: switch (channelsAsync) {
-            AsyncData(:final value) when value.isEmpty => const _EmptyHint(),
+            AsyncData(:final value) when value.isEmpty => _EmptyHint(
+              filter: filter,
+            ),
             AsyncData(:final value) => _ChannelList(channels: value),
             AsyncError(:final error) => Center(child: Text('加载失败：$error')),
             _ => const Center(child: CircularProgressIndicator()),
@@ -148,8 +169,8 @@ class _ChannelBrowser extends ConsumerWidget {
   }
 }
 
-class _GroupChip extends StatelessWidget {
-  const _GroupChip({
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
     required this.label,
     required this.selected,
     required this.onSelected,
@@ -186,14 +207,16 @@ class _ChannelList extends StatelessWidget {
   }
 }
 
-class _ChannelTile extends StatelessWidget {
+class _ChannelTile extends ConsumerWidget {
   const _ChannelTile({required this.channel});
 
   final Channel channel;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final logo = channel.logoUrl;
+    final favorites = ref.watch(favoriteKeysProvider).value ?? const <String>{};
+    final isFavorite = favorites.contains(channel.identityKey);
     return ListTile(
       leading: logo == null
           ? const Icon(Icons.live_tv_outlined, size: 32)
@@ -207,16 +230,31 @@ class _ChannelTile extends StatelessWidget {
             ),
       title: Text(channel.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(channel.groupTitle ?? ungroupedGroupLabel),
+      trailing: IconButton(
+        icon: Icon(
+          isFavorite ? Icons.star : Icons.star_border,
+          color: isFavorite ? Colors.amber : null,
+        ),
+        tooltip: isFavorite ? '取消收藏' : '收藏',
+        onPressed: () => unawaited(ref.read(toggleFavoriteProvider)(channel)),
+      ),
       onTap: () => context.pushNamed('player', extra: channel),
     );
   }
 }
 
 class _EmptyHint extends StatelessWidget {
-  const _EmptyHint();
+  const _EmptyHint({required this.filter});
+
+  final ChannelFilter filter;
 
   @override
   Widget build(BuildContext context) {
+    final (title, hint) = switch (filter) {
+      FilterFavorites() => ('还没有收藏频道', '点频道右侧的星标即可收藏'),
+      FilterRecent() => ('还没有观看记录', '播放过的频道会出现在这里'),
+      _ => ('还没有任何频道', '添加订阅源后即可开始观看'),
+    };
     final theme = Theme.of(context);
     return Center(
       child: Column(
@@ -228,10 +266,10 @@ class _EmptyHint extends StatelessWidget {
             color: theme.colorScheme.outline,
           ),
           const SizedBox(height: 16),
-          Text('还没有任何频道', style: theme.textTheme.titleMedium),
+          Text(title, style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            '添加订阅源后即可开始观看',
+            hint,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.outline,
             ),

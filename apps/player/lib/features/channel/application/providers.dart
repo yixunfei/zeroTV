@@ -1,11 +1,35 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
+import 'package:zerotv_player/features/channel/application/channel_filter.dart';
+import 'package:zerotv_player/features/channel/application/toggle_favorite.dart';
 import 'package:zerotv_player/features/channel/data/drift_channel_repository.dart';
+import 'package:zerotv_player/features/channel/data/drift_favorites_repository.dart';
+import 'package:zerotv_player/features/channel/data/drift_watch_history_repository.dart';
 
 /// Provides the [ChannelRepository].
 final channelRepositoryProvider = Provider<ChannelRepository>((ref) {
   return DriftChannelRepository(ref.watch(appDatabaseProvider));
+});
+
+/// Provides the [FavoritesRepository].
+final favoritesRepositoryProvider = Provider<FavoritesRepository>((ref) {
+  return DriftFavoritesRepository(ref.watch(appDatabaseProvider));
+});
+
+/// Provides the [WatchHistoryRepository].
+final watchHistoryRepositoryProvider = Provider<WatchHistoryRepository>((ref) {
+  return DriftWatchHistoryRepository(ref.watch(appDatabaseProvider));
+});
+
+/// Provides the [ToggleFavorite] use case.
+final toggleFavoriteProvider = Provider<ToggleFavorite>((ref) {
+  return ToggleFavorite(favorites: ref.watch(favoritesRepositoryProvider));
+});
+
+/// All channels across subscriptions, unfiltered.
+final allChannelsProvider = StreamProvider<List<Channel>>((ref) {
+  return ref.watch(channelRepositoryProvider).watchAll();
 });
 
 /// All distinct group titles across subscriptions, sorted.
@@ -18,32 +42,89 @@ final channelCountsProvider = StreamProvider<Map<String, int>>((ref) {
   return ref.watch(channelRepositoryProvider).watchCountsBySubscription();
 });
 
-/// Currently selected group filter; null means "all channels".
-final selectedGroupProvider = NotifierProvider<SelectedGroup, String?>(
-  SelectedGroup.new,
-);
+/// Current favorite channel keys.
+final favoriteKeysProvider = StreamProvider<Set<String>>((ref) {
+  return ref.watch(favoritesRepositoryProvider).watchKeys();
+});
 
-/// Holds the selected group filter.
-class SelectedGroup extends Notifier<String?> {
+/// Recent watch history, one entry per channel, latest first.
+final recentHistoryProvider = StreamProvider<List<HistoryEntry>>((ref) {
+  return ref.watch(watchHistoryRepositoryProvider).watchRecent();
+});
+
+/// Currently selected channel filter; defaults to [FilterAll].
+final channelFilterProvider =
+    NotifierProvider<ChannelFilterNotifier, ChannelFilter>(
+      ChannelFilterNotifier.new,
+    );
+
+/// Holds the selected channel filter.
+class ChannelFilterNotifier extends Notifier<ChannelFilter> {
   @override
-  String? build() => null;
+  ChannelFilter build() => const FilterAll();
 
-  /// The current group filter; null shows all channels.
-  String? get current => state;
+  /// The current filter.
+  ChannelFilter get current => state;
 
-  /// Sets the current group; null clears the filter (show all).
-  set current(String? group) => state = group;
+  /// Sets the current filter.
+  set current(ChannelFilter filter) => state = filter;
 }
 
-/// Channels shown in the list, honoring [selectedGroupProvider].
-final filteredChannelsProvider = StreamProvider<List<Channel>>((ref) {
-  final group = ref.watch(selectedGroupProvider);
-  final stream = ref.watch(channelRepositoryProvider).watchAll();
-  if (group == null) return stream;
-  return stream.map((channels) {
-    return [
-      for (final c in channels)
-        if ((c.groupTitle ?? ungroupedGroupLabel) == group) c,
-    ];
-  });
+/// Channels shown in the list, honoring [channelFilterProvider].
+final filteredChannelsProvider = Provider<AsyncValue<List<Channel>>>((ref) {
+  final channels = ref.watch(allChannelsProvider);
+  return switch (ref.watch(channelFilterProvider)) {
+    FilterAll() => channels,
+    FilterGroup(:final group) => channels.whenData(
+      (cs) => [
+        for (final c in cs)
+          if ((c.groupTitle ?? ungroupedGroupLabel) == group) c,
+      ],
+    ),
+    FilterFavorites() => _combine(
+      channels,
+      ref.watch(favoriteKeysProvider),
+      (cs, keys) => [
+        for (final c in cs)
+          if (keys.contains(c.identityKey)) c,
+      ],
+    ),
+    FilterRecent() => _combine(
+      channels,
+      ref.watch(recentHistoryProvider),
+      _recentOrdered,
+    ),
+  };
 });
+
+/// Orders channels by recency of watching; channels whose source
+/// disappeared upstream are skipped.
+List<Channel> _recentOrdered(
+  List<Channel> channels,
+  List<HistoryEntry> history,
+) {
+  final byKey = <String, Channel>{};
+  for (final c in channels) {
+    byKey.putIfAbsent(c.identityKey, () => c);
+  }
+  return [for (final e in history) ?byKey[e.channelKey]];
+}
+
+/// Combines two async values; errors win over loading, loading wins
+/// over data.
+AsyncValue<R> _combine<A, B, R>(
+  AsyncValue<A> a,
+  AsyncValue<B> b,
+  R Function(A a, B b) combine,
+) {
+  if (a case AsyncError(:final error, :final stackTrace)) {
+    return AsyncError(error, stackTrace);
+  }
+  if (b case AsyncError(:final error, :final stackTrace)) {
+    return AsyncError(error, stackTrace);
+  }
+  final av = a.value;
+  final bv = b.value;
+  if (av == null || bv == null) return const AsyncLoading();
+  return AsyncData(combine(av, bv));
+}

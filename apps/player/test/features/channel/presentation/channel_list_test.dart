@@ -8,6 +8,8 @@ import 'package:zerotv_player/features/subscription/application/auto_sync_servic
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 import '../../../helpers/fake_channel_repository.dart';
+import '../../../helpers/fake_favorites_repository.dart';
+import '../../../helpers/fake_watch_history_repository.dart';
 
 void main() {
   const seedChannels = [
@@ -15,7 +17,16 @@ void main() {
     Channel(name: '湖南卫视', streamUrl: 'http://a/2', groupTitle: '卫视'),
   ];
 
-  Future<void> pumpPage(WidgetTester tester) async {
+  late FakeFavoritesRepository favorites;
+  late FakeWatchHistoryRepository history;
+
+  Future<void> pumpPage(
+    WidgetTester tester, {
+    Set<String>? favoriteKeys,
+    List<HistoryEntry>? historyEntries,
+  }) async {
+    favorites = FakeFavoritesRepository(favoriteKeys);
+    history = FakeWatchHistoryRepository(historyEntries);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -25,6 +36,8 @@ void main() {
               groups: const ['央视', '卫视'],
             ),
           ),
+          favoritesRepositoryProvider.overrideWithValue(favorites),
+          watchHistoryRepositoryProvider.overrideWithValue(history),
           bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
         ],
         child: const MaterialApp(home: ChannelListPage()),
@@ -39,6 +52,8 @@ void main() {
     await pumpPage(tester);
 
     expect(find.text('全部'), findsOneWidget);
+    expect(find.text('收藏'), findsOneWidget);
+    expect(find.text('最近'), findsOneWidget);
     expect(find.text('央视'), findsWidgets); // chip + tile subtitle
     expect(find.text('卫视'), findsWidgets);
     expect(find.text('CCTV-1'), findsOneWidget);
@@ -55,5 +70,60 @@ void main() {
 
     expect(find.text('CCTV-1'), findsOneWidget);
     expect(find.text('湖南卫视'), findsNothing);
+  });
+
+  testWidgets('tapping the star toggles the favorite state', (tester) async {
+    await pumpPage(tester);
+
+    expect(find.byIcon(Icons.star_border), findsNWidgets(2));
+    await tester.tap(find.byIcon(Icons.star_border).first);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(await favorites.isFavorite('cctv-1'), isTrue);
+    expect(find.byIcon(Icons.star), findsOneWidget);
+    expect(find.byIcon(Icons.star_border), findsOneWidget);
+  });
+
+  testWidgets('favorites chip shows only favorite channels', (tester) async {
+    await pumpPage(tester, favoriteKeys: {'cctv-1'});
+
+    await tester.tap(find.widgetWithText(ChoiceChip, '收藏'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(find.text('CCTV-1'), findsOneWidget);
+    expect(find.text('湖南卫视'), findsNothing);
+  });
+
+  testWidgets('recent chip orders channels by latest watch', (tester) async {
+    await pumpPage(
+      tester,
+      historyEntries: [
+        HistoryEntry(
+          channelKey: 'cctv-1',
+          channelName: 'CCTV-1',
+          watchedAt: DateTime(2026, 9, 22, 8),
+        ),
+        HistoryEntry(
+          channelKey: '湖南卫视',
+          channelName: '湖南卫视',
+          watchedAt: DateTime(2026, 9, 22, 9),
+        ),
+      ],
+    );
+
+    await tester.tap(find.widgetWithText(ChoiceChip, '最近'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(find.text('CCTV-1'), findsOneWidget);
+    expect(find.text('湖南卫视'), findsOneWidget);
+    final recentFirst = tester.getTopLeft(find.text('湖南卫视'));
+    final olderSecond = tester.getTopLeft(find.text('CCTV-1'));
+    expect(recentFirst.dy, lessThan(olderSecond.dy));
   });
 }
