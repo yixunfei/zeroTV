@@ -271,9 +271,9 @@ App 本体仍不存储/分发任何频道内容，只内置"指向公开列表�
    播放器 OSD 完整版（音轨/字幕/宽高比/倍速）、设置中心（同步间隔/检测并发/
    播放缓冲/主题）、录制（schema v5 + 原始字节流落盘 + 播放页开关 + 录制管理页）。
    analyze + 全部测试绿（app 114 例）。**M3 全部收尾。**
-8. M4 进行中：~~关于页 + 首次免责声明~~、~~i18n 中英~~ 已实现（`/settings/about`、
-   首启不可关闭弹窗、README 免责声明、`settings.disclaimerAccepted`；
-   gen-l10n 中英 arb + 设置页语言切换 `settings.locale`）。尚未提交。
-   剩余：性能压测、应用图标、Release 工作流（tag 触发双端构建 + Android 签名）。
+8. M4 进行中：~~关于页 + 首次免责声明~~、~~i18n 中英~~ 已完成并提交（7ee2bae：
+   `/settings/about`、首启不可关闭弹窗、README 免责声明、`settings.disclaimerAccepted`；
+   gen-l10n 中英 arb + 设置页语言切换 `settings.locale`）。
+   剩余：应用图标、Release 工作流（tag 触发双端构建 + Android 签名）、性能压测。
    技术债：定时录制、探测结果 24h 过期清理、录制转封装、Windows 构建冒烟、
    WorkManager 真机验证。

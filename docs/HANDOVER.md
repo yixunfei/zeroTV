@@ -1,12 +1,12 @@
 # zeroTV 接手开发（Handover ）
 
-> 生成时间：2026-09-24（M4-2/3 完成后刷新）。将本文件全文提供给下一会话即可无缝接手。  
+> 生成时间：2026-09-24（M4-2/3 提交后刷新）。将本文件全文提供给下一会话即可无缝接手。  
 > 本文件描述的是"当前真实状态"，与 docs/PLAN.md（长期计划）互补；冲突时以代码为准。
 
 ## 0. 接手第一件事
 
-**M3 已提交；M4-3（关于页 + 首次免责声明）与 M4-2（中英 i18n）已实现但未提交。**  
-进入会话后先看 `git status` / `git diff`，确认这批改动后再提交或继续 M4 其余项。  
+**M4-3 与 M4-2 已提交（commit 7ee2bae），工作区干净（`untranslated.txt` 已 gitignore）。**  
+下一步是 M4 剩余项：应用图标 → Release 工作流 → 性能压测（见 §5）。  
 测试前必须 `flutter gen-l10n`（已并入 `scripts/common.ps1` 的 `Invoke-Codegen`）；  
 `lib/l10n/generated/` 不入库。widget 测试若断言中文，须把 `settings.locale` 设为 `zh`  
 （本机系统语言为英文，否则跟随系统会渲染英文）。独立 `MaterialApp` 测试用  
@@ -68,13 +68,13 @@ monorepo（1 个 Flutter App + 4 个纯 Dart 包），P0 平台 Android + Window
 
 **M3 验收：** 全绿（app 114 例）。
 
-- **M4-3 关于页与首次免责声明（未提交）**：`AboutPage`（`/settings/about`）；  
+- **M4-3 关于页与首次免责声明（commit 7ee2bae）**：`AboutPage`（`/settings/about`）；  
   设置页「关于」可进入；`disclaimerText` 与 README 免责声明一致；  
   `AppSettings.disclaimerAccepted`（prefs `settings.disclaimerAccepted`）；  
   首页 `ChannelListPage.initState` 调 `maybeShowDisclaimer`（不可关闭，确认后不再弹出）。  
   渲染频道列表的测试必须再 override `sharedPreferencesProvider`（已接受免责声明）。
 
-- **M4-2 中英 i18n（未提交）**：`flutter_localizations` + `lib/l10n/app_zh.arb`（模板）/  
+- **M4-2 中英 i18n（commit 7ee2bae）**：`flutter_localizations` + `lib/l10n/app_zh.arb`（模板）/  
   `app_en.arb`；界面文案走 `AppLocalizations.of(context)`。`AppSettings.locale`  
   （prefs `settings.locale`，null = 跟随系统）；设置页「语言」可选跟随系统/中文/English。  
   异常消息与默认源名仍为中文（不进 arb）。
@@ -104,11 +104,11 @@ Windows 插件符号链接预建（`Initialize-WindowsPluginSymlinks`）已下�
 
 ## 5. 下一步待办（M4，按优先级）
 
-M3 已收尾。下一步进入 **M4 — 打磨与发布**：
+M3 已收尾，M4-2/3 已提交。M4 剩余：
 
 1. 性能与内存压测（5000+ 频道列表滚动 60fps、长时播放内存稳定）。
-2. ~~i18n 中英~~ 已实现（gen-l10n + 设置页语言切换），待提交。
-3. ~~首次启动流程打磨 + 免责声明~~ 已实现（关于页 + 首启弹窗 + README），待提交。
+2. ~~i18n 中英~~ 已完成并提交（7ee2bae）。
+3. ~~首次启动流程打磨 + 免责声明~~ 已完成并提交（7ee2bae）。
 4. 应用图标（勿用电视台台标）。
 5. Release 工作流（tag 触发双端构建并上传 GitHub Releases，含 Android 签名配置）。
 
