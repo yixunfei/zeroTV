@@ -191,7 +191,7 @@ App 本体仍不存储/分发任何频道内容，只内置"指向公开列表�
 - m3u_parser 包（含单测）、订阅添加（URL/本地文件/粘贴）、同步落库、分组频道列表、media_kit 播放页、单源播放。
 - 验收：粘贴 vbskycn 的 M3U 地址，Android 与 Windows 双端可浏览分组列表并流畅播放。
 
-### M2 — 数据管理：好用（预计 2~3 周）
+### M2 — 数据管理：好用（预计 2~3 周）✅ 已完成（2026-09-24）
 - 多订阅管理、自动同步（含 WorkManager）、增量合并、收藏、最近观看、搜索、自定义添加单个频道、stream_probe 可用性检测与标记。
 - 验收：6h 自动同步不丢用户数据；500 频道批量检测 UI 不卡；收藏跨重启保留。
 
@@ -256,6 +256,12 @@ App 本体仍不存储/分发任何频道内容，只内置"指向公开列表�
    播放页首次 playing 时回写观看历史（播放失败不记）。新增 FavoritesRepository /
    WatchHistoryRepository 端口（按 identityKey 独立存表，同步替换不丢），
    无 schema 变更。analyze + 全部测试绿（app 43 例）。
-6. 下一步 M2 剩余：WorkManager 后台同步（Android）+ Windows 启动时同步补齐、
-   频道搜索、自定义添加单频道、stream_probe 批量检测接 UI、
-   「上次观看」恢复（历史已在记录，接恢复入口即可）。
+6. ~~M2 剩余~~ 已完成（2026-09-24）：频道搜索（sealed `ChannelFilter` 加
+   `FilterSearch` 分支 + AppBar 搜索模式）、上次观看恢复入口（首页「继续观看」
+   横幅）、自定义添加单频道（`SubscriptionKind.manual` +「我的频道」隐式订阅 +
+   FAB 双入口 + 删除确认）、stream_probe 批量检测接 UI（`probe_results` schema v3
+   + 状态点 + 「可用」过滤）、后台同步（Android WorkManager 周期任务 + 桌面
+   应用内定时器）。analyze + 全部测试绿（app 72 例）。**M2 全部收尾。**
+7. 下一步进入 M3 — 体验增强：专业：EPG（xmltv_parser 已就绪，接端口与 UI）、
+   录制（手动 + 定时，原样写 .ts）、录制管理、多源 failover、播放器 OSD 完整版、
+   设置中心（同步间隔/检测并发/缓冲/主题/语言）。
