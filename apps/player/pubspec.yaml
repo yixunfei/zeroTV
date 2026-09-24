@@ -25,6 +25,8 @@ dependencies:
   path_provider: ^2.1.6
   shared_preferences: ^2.5.0
   sqlite3_flutter_libs: ^0.6.0+eol
+  stream_probe:
+    path: ../../packages/stream_probe
   uuid: ^4.6.0
 
 dev_dependencies:

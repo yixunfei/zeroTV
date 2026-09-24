@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/application/channel_filter.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
+import 'package:zerotv_player/features/detection/application/probe_scan_controller.dart';
+import 'package:zerotv_player/features/detection/application/providers.dart';
+import 'package:zerotv_player/features/detection/application/run_availability_probe.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 /// Home page: grouped channel list, gated on first-run bootstrap
@@ -79,6 +82,14 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
               icon: const Icon(Icons.search),
               tooltip: '搜索',
               onPressed: _enterSearch,
+            ),
+            _ScanButton(
+              onStart: () {
+                final channels = ref.read(allChannelsProvider).value ?? [];
+                unawaited(
+                  ref.read(probeScanProvider.notifier).start(channels),
+                );
+              },
             ),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
@@ -194,6 +205,7 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
     final filter = ref.watch(channelFilterProvider);
     final channelsAsync = ref.watch(filteredChannelsProvider);
     final lastWatched = ref.watch(lastWatchedChannelProvider);
+    final scan = ref.watch(probeScanProvider);
     final showResume =
         !_resumeDismissed && filter is FilterAll && lastWatched != null;
     return Column(
@@ -203,6 +215,8 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
             channel: lastWatched,
             onDismiss: () => setState(() => _resumeDismissed = true),
           ),
+        if (scan is ProbeScanRunning)
+          _ScanProgressBanner(progress: scan.progress),
         if (filter is! FilterSearch)
           SizedBox(
             height: 56,
@@ -230,6 +244,13 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
                   onSelected: () =>
                       ref.read(channelFilterProvider.notifier).current =
                           const FilterRecent(),
+                ),
+                _FilterChip(
+                  label: '可用',
+                  selected: filter is FilterAvailable,
+                  onSelected: () =>
+                      ref.read(channelFilterProvider.notifier).current =
+                          const FilterAvailable(),
                 ),
                 for (final g in groups)
                   _FilterChip(
@@ -308,6 +329,65 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
+/// App-bar action that starts a batch availability scan and reflects
+/// its progress.
+class _ScanButton extends ConsumerWidget {
+  const _ScanButton({required this.onStart});
+
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scan = ref.watch(probeScanProvider);
+    if (scan is ProbeScanRunning) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    return IconButton(
+      icon: const Icon(Icons.network_check_outlined),
+      tooltip: '检测可用性',
+      onPressed: onStart,
+    );
+  }
+}
+
+/// Thin progress bar shown while a batch scan is running.
+class _ScanProgressBanner extends StatelessWidget {
+  const _ScanProgressBanner({required this.progress});
+
+  final ProbeProgress progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = progress.total;
+    final value = total == 0 ? 0.0 : progress.completed / total;
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: [
+                const Icon(Icons.wifi_tethering, size: 18),
+                const SizedBox(width: 8),
+                Text('正在检测可用性 ${progress.completed}/$total'),
+              ],
+            ),
+          ),
+          LinearProgressIndicator(value: value),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChannelList extends StatelessWidget {
   const _ChannelList({required this.channels});
 
@@ -332,6 +412,7 @@ class _ChannelTile extends ConsumerWidget {
     final logo = channel.logoUrl;
     final favorites = ref.watch(favoriteKeysProvider).value ?? const <String>{};
     final isFavorite = favorites.contains(channel.identityKey);
+    final probe = ref.watch(probeResultsProvider).value?[channel.identityKey];
     return ListTile(
       leading: logo == null
           ? const Icon(Icons.live_tv_outlined, size: 32)
@@ -344,7 +425,15 @@ class _ChannelTile extends ConsumerWidget {
                   const Icon(Icons.live_tv_outlined, size: 32),
             ),
       title: Text(channel.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(channel.groupTitle ?? ungroupedGroupLabel),
+      subtitle: Row(
+        children: [
+          Text(channel.groupTitle ?? ungroupedGroupLabel),
+          if (probe != null) ...[
+            const SizedBox(width: 8),
+            _ProbeStatusDot(status: probe.status),
+          ],
+        ],
+      ),
       trailing: IconButton(
         icon: Icon(
           isFavorite ? Icons.star : Icons.star_border,
@@ -354,6 +443,35 @@ class _ChannelTile extends ConsumerWidget {
         onPressed: () => unawaited(ref.read(toggleFavoriteProvider)(channel)),
       ),
       onTap: () => context.pushNamed('player', extra: channel),
+    );
+  }
+}
+
+/// Small colored dot summarizing the latest probe status of a channel.
+class _ProbeStatusDot extends StatelessWidget {
+  const _ProbeStatusDot({required this.status});
+
+  final ProbeStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, label) = switch (status) {
+      ProbeStatus.ok => (Colors.green, '可用'),
+      ProbeStatus.timeout => (Colors.orange, '超时'),
+      ProbeStatus.dead => (Colors.red, '失效'),
+      ProbeStatus.unsupported => (Colors.grey, '不支持检测'),
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }
@@ -369,6 +487,7 @@ class _EmptyHint extends StatelessWidget {
       FilterFavorites() => ('还没有收藏频道', '点频道右侧的星标即可收藏'),
       FilterRecent() => ('还没有观看记录', '播放过的频道会出现在这里'),
       FilterSearch(:final query) => ('没有找到「$query」', '换个关键字试试'),
+      FilterAvailable() => ('还没有可用频道', '先运行可用性检测，或稍后重试'),
       _ => ('还没有任何频道', '添加订阅源后即可开始观看'),
     };
     final theme = Theme.of(context);

@@ -15,5 +15,6 @@ export 'src/interfaces/subscription_source.dart';
 export 'src/repositories/channel_repository.dart';
 export 'src/repositories/epg_repository.dart';
 export 'src/repositories/favorites_repository.dart';
+export 'src/repositories/probe_result_repository.dart';
 export 'src/repositories/subscription_repository.dart';
 export 'src/repositories/watch_history_repository.dart';

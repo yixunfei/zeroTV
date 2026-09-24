@@ -43,3 +43,9 @@ final class FilterSearch extends ChannelFilter {
   /// The search query; an empty query matches every channel.
   final String query;
 }
+
+/// Shows only channels whose latest probe result is `ProbeStatus.ok`.
+final class FilterAvailable extends ChannelFilter {
+  /// Creates the filter.
+  const FilterAvailable();
+}

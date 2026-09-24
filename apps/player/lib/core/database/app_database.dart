@@ -9,7 +9,9 @@ import 'package:zerotv_player/core/database/tables.dart';
 part 'app_database.g.dart';
 
 /// Application SQLite database (schema v1).
-@DriftDatabase(tables: [Subscriptions, Channels, Favorites, WatchHistory])
+@DriftDatabase(
+  tables: [Subscriptions, Channels, Favorites, WatchHistory, ProbeResults],
+)
 class AppDatabase extends _$AppDatabase {
   /// Opens the on-disk database in the app documents directory.
   AppDatabase() : super(_openOnDisk());
@@ -23,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -33,6 +35,10 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(channels, channels.catchupDays);
         await m.addColumn(channels, channels.userAgent);
         await m.addColumn(channels, channels.referrer);
+      }
+      if (from < 3) {
+        // v3: 新增 probe_results（可用性检测结果）。
+        await m.createTable(probeResults);
       }
     },
   );

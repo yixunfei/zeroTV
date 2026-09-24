@@ -896,6 +896,13 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "2.1.4"
+  stream_probe:
+    dependency: "direct main"
+    description:
+      path: "../../packages/stream_probe"
+      relative: true
+    source: path
+    version: "0.0.0"
   stream_transform:
     dependency: transitive
     description:

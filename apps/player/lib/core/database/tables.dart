@@ -102,3 +102,31 @@ class WatchHistory extends Table {
   /// When playback started.
   DateTimeColumn get watchedAt => dateTime()();
 }
+
+/// Latest stream availability probe per channel, keyed by identity key
+/// (see [Favorites.channelKey]) so it survives sync replacement.
+class ProbeResults extends Table {
+  /// Channel identity key.
+  TextColumn get channelKey => text()();
+
+  /// The probed stream URL.
+  TextColumn get url => text()();
+
+  /// ProbeStatus name (ok/timeout/dead/unsupported).
+  TextColumn get status => text()();
+
+  /// When the probe finished.
+  DateTimeColumn get checkedAt => dateTime()();
+
+  /// Round-trip latency in milliseconds, when available.
+  IntColumn get latencyMs => integer().nullable()();
+
+  /// HTTP status code, when the endpoint answered over HTTP.
+  IntColumn get httpStatus => integer().nullable()();
+
+  /// Diagnostic message for failures.
+  TextColumn get error => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {channelKey};
+}

@@ -6,6 +6,7 @@ import 'package:zerotv_player/features/channel/application/toggle_favorite.dart'
 import 'package:zerotv_player/features/channel/data/drift_channel_repository.dart';
 import 'package:zerotv_player/features/channel/data/drift_favorites_repository.dart';
 import 'package:zerotv_player/features/channel/data/drift_watch_history_repository.dart';
+import 'package:zerotv_player/features/detection/application/providers.dart';
 
 /// Provides the [ChannelRepository].
 final channelRepositoryProvider = Provider<ChannelRepository>((ref) {
@@ -98,6 +99,14 @@ final filteredChannelsProvider = Provider<AsyncValue<List<Channel>>>((ref) {
       (cs) => [
         for (final c in cs)
           if (c.name.toLowerCase().contains(query.toLowerCase())) c,
+      ],
+    ),
+    FilterAvailable() => _combine(
+      channels,
+      ref.watch(probeResultsProvider),
+      (cs, results) => [
+        for (final c in cs)
+          if (results[c.identityKey]?.status == ProbeStatus.ok) c,
       ],
     ),
   };

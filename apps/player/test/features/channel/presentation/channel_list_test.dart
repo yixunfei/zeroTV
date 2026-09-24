@@ -4,11 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/channel/presentation/channel_list_page.dart';
+import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 import '../../../helpers/fake_channel_repository.dart';
 import '../../../helpers/fake_favorites_repository.dart';
+import '../../../helpers/fake_probe_result_repository.dart';
 import '../../../helpers/fake_watch_history_repository.dart';
 
 void main() {
@@ -24,6 +26,7 @@ void main() {
     WidgetTester tester, {
     Set<String>? favoriteKeys,
     List<HistoryEntry>? historyEntries,
+    Map<String, ProbeResult>? probeResults,
   }) async {
     favorites = FakeFavoritesRepository(favoriteKeys);
     history = FakeWatchHistoryRepository(historyEntries);
@@ -38,6 +41,9 @@ void main() {
           ),
           favoritesRepositoryProvider.overrideWithValue(favorites),
           watchHistoryRepositoryProvider.overrideWithValue(history),
+          probeResultRepositoryProvider.overrideWithValue(
+            FakeProbeResultRepository(probeResults),
+          ),
           bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
         ],
         child: const MaterialApp(home: ChannelListPage()),
@@ -233,5 +239,55 @@ void main() {
     }
 
     expect(find.text('继续观看：CCTV-1'), findsNothing);
+  });
+
+  testWidgets('channel tiles show probe status when results exist', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      probeResults: {
+        'cctv-1': ProbeResult(
+          url: 'http://a/1',
+          status: ProbeStatus.ok,
+          checkedAt: DateTime(2026, 9, 22, 8),
+        ),
+        '湖南卫视': ProbeResult(
+          url: 'http://a/2',
+          status: ProbeStatus.dead,
+          checkedAt: DateTime(2026, 9, 22, 8),
+        ),
+      },
+    );
+
+    // '可用' appears twice: the filter chip and CCTV-1's status dot.
+    expect(find.text('可用'), findsNWidgets(2));
+    expect(find.text('失效'), findsOneWidget);
+  });
+
+  testWidgets('available chip shows only ok channels', (tester) async {
+    await pumpPage(
+      tester,
+      probeResults: {
+        'cctv-1': ProbeResult(
+          url: 'http://a/1',
+          status: ProbeStatus.ok,
+          checkedAt: DateTime(2026, 9, 22, 8),
+        ),
+        '湖南卫视': ProbeResult(
+          url: 'http://a/2',
+          status: ProbeStatus.dead,
+          checkedAt: DateTime(2026, 9, 22, 8),
+        ),
+      },
+    );
+
+    await tester.tap(find.widgetWithText(ChoiceChip, '可用'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    expect(find.text('CCTV-1'), findsOneWidget);
+    expect(find.text('湖南卫视'), findsNothing);
   });
 }
