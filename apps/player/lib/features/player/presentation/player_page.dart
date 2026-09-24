@@ -7,10 +7,14 @@ import 'package:iptv_core/iptv_core.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
+import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
 
-/// Fullscreen player page for a single channel (single-stream playback;
-/// multi-source failover lands in M3).
+/// Fullscreen player page for a single channel.
+///
+/// When several sources carry the same channel (same identity key), the
+/// player tries them in order and automatically advances on playback
+/// failure (M3 multi-source failover).
 class PlayerPage extends ConsumerStatefulWidget {
   /// Creates the page.
   const PlayerPage({required this.channel, super.key});
@@ -26,24 +30,70 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   late final Player _player;
   late final VideoController _controller;
   late final StreamSubscription<bool> _playingSub;
+  late final StreamSubscription<String> _errorSub;
   bool _showControls = true;
   bool _recorded = false;
+
+  /// Ordered sources to try, resolved once on first build.
+  List<Channel> _sources = const [];
+  int _sourceIndex = 0;
+  bool _switching = false;
+
+  Channel get _current =>
+      _sources.isEmpty ? widget.channel : _sources[_sourceIndex];
 
   @override
   void initState() {
     super.initState();
     _player = Player();
     _controller = VideoController(_player);
-    // Record watch history only once playback actually starts.
     _playingSub = _player.stream.playing.listen(_recordHistoryOnce);
-    unawaited(
-      _player.open(
-        Media(
-          widget.channel.streamUrl,
-          httpHeaders: widget.channel.httpHeaders,
+    _errorSub = _player.stream.error.listen(_onPlaybackError);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_sources.isEmpty) {
+      _sources = _resolveSources();
+      unawaited(_openCurrent());
+    }
+  }
+
+  List<Channel> _resolveSources() {
+    final all = ref.read(allChannelsProvider).value ?? const <Channel>[];
+    final probes = ref.read(probeResultsProvider).value ?? const {};
+    return ref.read(resolveChannelSourcesProvider)(widget.channel, all, probes);
+  }
+
+  Future<void> _openCurrent() {
+    return _player.open(
+      Media(_current.streamUrl, httpHeaders: _current.httpHeaders),
+    );
+  }
+
+  void _onPlaybackError(String error) {
+    if (error.isEmpty || _switching) return;
+    if (_sourceIndex >= _sources.length - 1) return; // No more fallbacks.
+    unawaited(_switchToNext());
+  }
+
+  Future<void> _switchToNext() async {
+    setState(() {
+      _switching = true;
+      _sourceIndex++;
+    });
+    await _openCurrent();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '已切换到源 ${_sourceIndex + 1}/${_sources.length}：${_current.name}',
         ),
+        duration: const Duration(seconds: 2),
       ),
     );
+    _switching = false;
   }
 
   void _recordHistoryOnce(bool playing) {
@@ -65,6 +115,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   @override
   void dispose() {
     unawaited(_playingSub.cancel());
+    unawaited(_errorSub.cancel());
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -83,9 +134,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               controls: (state) => const SizedBox.shrink(),
             ),
             _BufferingIndicator(player: _player),
-            _ErrorIndicator(player: _player),
+            _ErrorIndicator(
+              player: _player,
+              hasFallback: _sourceIndex < _sources.length - 1,
+            ),
             if (_showControls) ...[
-              _TopBar(channel: widget.channel),
+              _TopBar(channel: widget.channel, source: _current),
               _BottomBar(player: _player),
             ],
           ],
@@ -114,9 +168,10 @@ class _BufferingIndicator extends StatelessWidget {
 }
 
 class _ErrorIndicator extends StatelessWidget {
-  const _ErrorIndicator({required this.player});
+  const _ErrorIndicator({required this.player, required this.hasFallback});
 
   final Player player;
+  final bool hasFallback;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +180,9 @@ class _ErrorIndicator extends StatelessWidget {
       builder: (context, snapshot) {
         final error = snapshot.data;
         if (error == null || error.isEmpty) return const SizedBox.shrink();
+        if (hasFallback) {
+          return const Center(child: CircularProgressIndicator());
+        }
         return Center(
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -142,9 +200,10 @@ class _ErrorIndicator extends StatelessWidget {
 }
 
 class _TopBar extends ConsumerWidget {
-  const _TopBar({required this.channel});
+  const _TopBar({required this.channel, required this.source});
 
   final Channel channel;
+  final Channel source;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -189,6 +248,16 @@ class _TopBar extends ConsumerWidget {
                   if (nowTitle != null)
                     Text(
                       '正在播：$nowTitle',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    )
+                  else if (source.streamUrl != channel.streamUrl)
+                    Text(
+                      '备用源：${source.groupTitle ?? source.streamUrl}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

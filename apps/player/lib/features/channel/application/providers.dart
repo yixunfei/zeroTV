@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
 import 'package:zerotv_player/features/channel/application/channel_filter.dart';
+import 'package:zerotv_player/features/channel/application/resolve_channel_sources.dart';
 import 'package:zerotv_player/features/channel/application/toggle_favorite.dart';
 import 'package:zerotv_player/features/channel/data/drift_channel_repository.dart';
 import 'package:zerotv_player/features/channel/data/drift_favorites_repository.dart';
@@ -11,6 +12,11 @@ import 'package:zerotv_player/features/detection/application/providers.dart';
 /// Provides the [ChannelRepository].
 final channelRepositoryProvider = Provider<ChannelRepository>((ref) {
   return DriftChannelRepository(ref.watch(appDatabaseProvider));
+});
+
+/// Provides the [ResolveChannelSources] use case.
+final resolveChannelSourcesProvider = Provider<ResolveChannelSources>((ref) {
+  return const ResolveChannelSources();
 });
 
 /// Provides the [FavoritesRepository].
