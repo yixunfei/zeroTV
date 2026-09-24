@@ -5,6 +5,9 @@ import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/channel/presentation/channel_list_page.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
+import 'package:zerotv_player/features/epg/application/epg_guide.dart';
+import 'package:zerotv_player/features/epg/application/epg_index.dart';
+import 'package:zerotv_player/features/epg/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
@@ -29,6 +32,7 @@ void main() {
     List<HistoryEntry>? historyEntries,
     Map<String, ProbeResult>? probeResults,
     bool manual = false,
+    EpgIndex? epgIndex,
   }) async {
     favorites = FakeFavoritesRepository(favoriteKeys);
     history = FakeWatchHistoryRepository(historyEntries);
@@ -56,6 +60,9 @@ void main() {
                   enabled: false,
                 ),
             ]),
+          ),
+          epgIndexProvider.overrideWith(
+            (ref) async => epgIndex ?? EpgIndex.empty,
           ),
           bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
         ],
@@ -314,5 +321,27 @@ void main() {
     await pumpPage(tester);
 
     expect(find.byTooltip('删除频道'), findsNothing);
+  });
+
+  testWidgets('channel tile shows now/next when EPG matches', (tester) async {
+    final at = DateTime.utc(2026, 9, 24, 12);
+    await pumpPage(
+      tester,
+      epgIndex: EpgIndex(
+        byEpgId: {
+          'cctv-1': NowNext(
+            now: EpgProgram(
+              channelId: 'cctv-1',
+              title: '新闻联播',
+              start: at,
+              stop: at.add(const Duration(hours: 1)),
+            ),
+          ),
+        },
+        byNormalizedName: const {'cctv-1': 'cctv-1'},
+      ),
+    );
+
+    expect(find.textContaining('正在播：新闻联播'), findsOneWidget);
   });
 }

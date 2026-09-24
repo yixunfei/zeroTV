@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/presentation/add_custom_channel_page.dart';
 import 'package:zerotv_player/features/channel/presentation/channel_list_page.dart';
+import 'package:zerotv_player/features/epg/presentation/epg_settings_page.dart';
 import 'package:zerotv_player/features/player/presentation/player_page.dart';
 import 'package:zerotv_player/features/settings/presentation/settings_page.dart';
 import 'package:zerotv_player/features/subscription/presentation/add_subscription_page.dart';
@@ -27,6 +28,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/subscriptions',
         name: 'subscription-management',
         builder: (context, state) => const SubscriptionsPage(),
+      ),
+      GoRoute(
+        path: '/settings/epg',
+        name: 'epg-settings',
+        builder: (context, state) => const EpgSettingsPage(),
       ),
       GoRoute(
         path: '/add-subscription',

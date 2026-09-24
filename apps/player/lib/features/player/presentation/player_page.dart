@@ -7,6 +7,7 @@ import 'package:iptv_core/iptv_core.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
+import 'package:zerotv_player/features/epg/application/providers.dart';
 
 /// Fullscreen player page for a single channel (single-stream playback;
 /// multi-source failover lands in M3).
@@ -84,7 +85,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             _BufferingIndicator(player: _player),
             _ErrorIndicator(player: _player),
             if (_showControls) ...[
-              _TopBar(channelName: widget.channel.name),
+              _TopBar(channel: widget.channel),
               _BottomBar(player: _player),
             ],
           ],
@@ -140,13 +141,15 @@ class _ErrorIndicator extends StatelessWidget {
   }
 }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.channelName});
+class _TopBar extends ConsumerWidget {
+  const _TopBar({required this.channel});
 
-  final String channelName;
+  final Channel channel;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nowNext = ref.watch(epgIndexProvider).value?.forChannel(channel);
+    final nowTitle = nowNext?.now?.title;
     return Positioned(
       top: 0,
       left: 0,
@@ -173,11 +176,27 @@ class _TopBar extends StatelessWidget {
               onPressed: () => context.pop(),
             ),
             Expanded(
-              child: Text(
-                channelName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    channel.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                  if (nowTitle != null)
+                    Text(
+                      '正在播：$nowTitle',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
               ),
             ),
             Container(

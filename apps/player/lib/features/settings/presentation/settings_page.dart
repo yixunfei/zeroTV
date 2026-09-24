@@ -20,6 +20,13 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushNamed('subscription-management'),
           ),
+          ListTile(
+            leading: const Icon(Icons.event_note_outlined),
+            title: const Text('EPG 节目单'),
+            subtitle: const Text('配置 XMLTV 源，显示「现在/接下来」'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('epg-settings'),
+          ),
           const ListTile(
             leading: Icon(Icons.sync_outlined),
             title: Text('订阅同步'),

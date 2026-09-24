@@ -10,6 +10,8 @@ import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/probe_scan_controller.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/run_availability_probe.dart';
+import 'package:zerotv_player/features/epg/application/epg_guide.dart';
+import 'package:zerotv_player/features/epg/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 /// Home page: grouped channel list, gated on first-run bootstrap
@@ -414,6 +416,7 @@ class _ChannelTile extends ConsumerWidget {
     final favorites = ref.watch(favoriteKeysProvider).value ?? const <String>{};
     final isFavorite = favorites.contains(channel.identityKey);
     final probe = ref.watch(probeResultsProvider).value?[channel.identityKey];
+    final nowNext = ref.watch(epgIndexProvider).value?.forChannel(channel);
     final isManual =
         ref
             .watch(manualChannelKeysProvider)
@@ -434,13 +437,21 @@ class _ChannelTile extends ConsumerWidget {
                   const Icon(Icons.live_tv_outlined, size: 32),
             ),
       title: Text(channel.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Row(
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(channel.groupTitle ?? ungroupedGroupLabel),
-          if (probe != null) ...[
-            const SizedBox(width: 8),
-            _ProbeStatusDot(status: probe.status),
-          ],
+          Row(
+            children: [
+              Text(channel.groupTitle ?? ungroupedGroupLabel),
+              if (probe != null) ...[
+                const SizedBox(width: 8),
+                _ProbeStatusDot(status: probe.status),
+              ],
+            ],
+          ),
+          if (nowNext != null && (nowNext.now != null || nowNext.next != null))
+            _NowNextLine(nowNext: nowNext),
         ],
       ),
       trailing: Row(
@@ -488,6 +499,36 @@ class _ChannelTile extends ConsumerWidget {
     if (confirmed ?? false) {
       await ref.read(removeCustomChannelProvider)(channel.identityKey);
     }
+  }
+}
+
+/// Compact "now / next" line shown under a channel whose EPG matched.
+class _NowNextLine extends StatelessWidget {
+  const _NowNextLine({required this.nowNext});
+
+  final NowNext nowNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.primary,
+    );
+    final now = nowNext.now?.title;
+    final next = nowNext.next?.title;
+    final text = switch ((now, next)) {
+      (final n?, final x?) => '正在播：$n · 接下来：$x',
+      (final n?, null) => '正在播：$n',
+      (null, final x?) => '接下来：$x',
+      _ => '',
+    };
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
 import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/features/epg/application/epg_guide.dart';
+import 'package:zerotv_player/features/epg/application/epg_index.dart';
 import 'package:zerotv_player/features/epg/application/epg_settings.dart';
 import 'package:zerotv_player/features/epg/application/sync_epg.dart';
 import 'package:zerotv_player/features/epg/data/drift_epg_repository.dart';
@@ -70,4 +71,20 @@ final nowNextByEpgIdProvider = FutureProvider<Map<String, NowNext>>((
     for (final entry in byChannel.entries)
       entry.key: guide.resolve(entry.value),
   };
+});
+
+/// Now/next index for resolving programmes against app channels.
+///
+/// Combines XMLTV channel metadata (for name fallback) with the now/next
+/// map. Empty when no EPG data is stored.
+final epgIndexProvider = FutureProvider<EpgIndex>((ref) async {
+  final repository = ref.watch(epgRepositoryProvider);
+  final nowNext = await ref.watch(nowNextByEpgIdProvider.future);
+  if (nowNext.isEmpty) return EpgIndex.empty;
+  final channels = await repository.allChannels();
+  final byName = <String, String>{};
+  for (final c in channels) {
+    byName.putIfAbsent(EpgIndex.normalize(c.displayName), () => c.id);
+  }
+  return EpgIndex(byEpgId: nowNext, byNormalizedName: byName);
 });
