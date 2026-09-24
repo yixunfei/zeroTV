@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
+import 'package:zerotv_player/core/settings/settings_providers.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
@@ -34,11 +35,18 @@ void backgroundSyncDispatcher() {
 /// whether to retry. A [container] may be injected for tests; otherwise a
 /// minimal container (only shared_preferences overridden) is built, with
 /// plugin registration performed for the background isolate.
+///
+/// Honors the user's global sync-interval setting: when it is null
+/// ("manual only"), the pass is a no-op.
 Future<bool> runBackgroundSync({ProviderContainer? container}) async {
   final ownsContainer = container == null;
   final resolved = container ?? await _createContainer();
   try {
-    final failures = await resolved.read(autoSyncServiceProvider).syncDue();
+    final interval = resolved.read(appSettingsProvider).syncInterval;
+    if (interval == null) return true;
+    final failures = await resolved
+        .read(autoSyncServiceProvider)
+        .syncDue(intervalOverride: interval);
     return failures.isEmpty;
   } finally {
     if (ownsContainer) resolved.dispose();
@@ -106,8 +114,10 @@ class BackgroundSyncScheduler {
 final backgroundSyncSchedulerProvider = Provider<BackgroundSyncScheduler>((
   ref,
 ) {
+  final interval = ref.watch(appSettingsProvider).syncInterval;
   final scheduler = BackgroundSyncScheduler(
     sync: ref.watch(autoSyncServiceProvider),
+    interval: interval ?? const Duration(hours: 1),
   );
   ref.onDispose(scheduler.stop);
   return scheduler;

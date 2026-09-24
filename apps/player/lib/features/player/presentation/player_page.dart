@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:zerotv_player/core/settings/settings_providers.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
@@ -48,7 +49,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   @override
   void initState() {
     super.initState();
-    _player = Player();
+    final bufferSize = ref.read(appSettingsProvider).bufferSizeBytes;
+    _player = Player(
+      configuration: PlayerConfiguration(bufferSize: bufferSize),
+    );
     _controller = VideoController(_player);
     _playingSub = _player.stream.playing.listen(_recordHistoryOnce);
     _errorSub = _player.stream.error.listen(_onPlaybackError);

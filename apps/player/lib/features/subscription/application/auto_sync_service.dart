@@ -28,11 +28,15 @@ class AutoSyncService {
   final SyncSubscription _sync;
 
   /// Syncs all due subscriptions; returns the failures (empty on success).
-  Future<List<SyncFailure>> syncDue() async {
+  ///
+  /// When [intervalOverride] is provided, it replaces each subscription's
+  /// own refresh interval for the due check (used by the user's global
+  /// "sync interval" setting).
+  Future<List<SyncFailure>> syncDue({Duration? intervalOverride}) async {
     final subs = await _subscriptions.getAll();
     final failures = <SyncFailure>[];
     for (final s in subs) {
-      if (!s.enabled || !s.isDue) continue;
+      if (!s.enabled || !_isDue(s, intervalOverride)) continue;
       try {
         await _sync(s);
       } on Object catch (e) {
@@ -40,5 +44,12 @@ class AutoSyncService {
       }
     }
     return failures;
+  }
+
+  bool _isDue(Subscription s, Duration? override) {
+    if (override == null) return s.isDue;
+    final synced = s.lastSyncedAt;
+    if (synced == null) return true;
+    return DateTime.now().difference(synced) >= override;
   }
 }

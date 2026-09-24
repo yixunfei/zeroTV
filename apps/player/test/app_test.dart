@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zerotv_player/app.dart';
+import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
@@ -17,9 +19,12 @@ void main() {
   /// repositories (live drift streams are covered by repository unit
   /// tests and intentionally avoided in widget tests).
   Future<void> pumpTestApp(WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
           channelRepositoryProvider.overrideWithValue(
             FakeChannelRepository(),
           ),
@@ -74,7 +79,7 @@ void main() {
       await tester.pump();
     }
 
-    expect(find.text('订阅同步'), findsOneWidget);
+    expect(find.text('订阅管理'), findsOneWidget);
     expect(find.text('关于 zeroTV'), findsOneWidget);
   });
 }

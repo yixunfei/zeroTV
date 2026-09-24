@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:stream_probe/stream_probe.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
+import 'package:zerotv_player/core/settings/settings_providers.dart';
 import 'package:zerotv_player/features/detection/application/run_availability_probe.dart';
 import 'package:zerotv_player/features/detection/data/drift_probe_result_repository.dart';
 
@@ -17,11 +18,14 @@ final streamProberProvider = Provider<StreamProber>((ref) {
   return prober;
 });
 
-/// Provides the [RunAvailabilityProbe] use case.
+/// Provides the [RunAvailabilityProbe] use case, honoring the configured
+/// probe concurrency.
 final runAvailabilityProbeProvider = Provider<RunAvailabilityProbe>((ref) {
+  final concurrency = ref.watch(appSettingsProvider).probeConcurrency;
   return RunAvailabilityProbe(
     prober: ref.watch(streamProberProvider),
     results: ref.watch(probeResultRepositoryProvider),
+    concurrency: concurrency,
   );
 });
 
