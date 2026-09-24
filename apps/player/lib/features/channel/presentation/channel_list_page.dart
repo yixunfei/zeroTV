@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/application/channel_filter.dart';
+import 'package:zerotv_player/features/channel/application/custom_channel_providers.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/probe_scan_controller.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
@@ -413,6 +414,14 @@ class _ChannelTile extends ConsumerWidget {
     final favorites = ref.watch(favoriteKeysProvider).value ?? const <String>{};
     final isFavorite = favorites.contains(channel.identityKey);
     final probe = ref.watch(probeResultsProvider).value?[channel.identityKey];
+    final isManual =
+        ref
+            .watch(manualChannelKeysProvider)
+            .value
+            ?.contains(
+              channel.identityKey,
+            ) ??
+        false;
     return ListTile(
       leading: logo == null
           ? const Icon(Icons.live_tv_outlined, size: 32)
@@ -434,16 +443,51 @@ class _ChannelTile extends ConsumerWidget {
           ],
         ],
       ),
-      trailing: IconButton(
-        icon: Icon(
-          isFavorite ? Icons.star : Icons.star_border,
-          color: isFavorite ? Colors.amber : null,
-        ),
-        tooltip: isFavorite ? '取消收藏' : '收藏',
-        onPressed: () => unawaited(ref.read(toggleFavoriteProvider)(channel)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(
+              isFavorite ? Icons.star : Icons.star_border,
+              color: isFavorite ? Colors.amber : null,
+            ),
+            tooltip: isFavorite ? '取消收藏' : '收藏',
+            onPressed: () =>
+                unawaited(ref.read(toggleFavoriteProvider)(channel)),
+          ),
+          if (isManual)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: '删除频道',
+              onPressed: () => unawaited(_confirmDelete(context, ref)),
+            ),
+        ],
       ),
       onTap: () => context.pushNamed('player', extra: channel),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除频道'),
+        content: Text('从「我的频道」移除「${channel.name}」？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) {
+      await ref.read(removeCustomChannelProvider)(channel.identityKey);
+    }
   }
 }
 

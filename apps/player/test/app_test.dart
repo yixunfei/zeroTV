@@ -9,6 +9,7 @@ import 'package:zerotv_player/features/subscription/application/providers.dart';
 import 'helpers/fake_channel_repository.dart';
 import 'helpers/fake_favorites_repository.dart';
 import 'helpers/fake_probe_result_repository.dart';
+import 'helpers/fake_subscription_repository.dart';
 import 'helpers/fake_watch_history_repository.dart';
 
 void main() {
@@ -30,6 +31,9 @@ void main() {
           ),
           probeResultRepositoryProvider.overrideWithValue(
             FakeProbeResultRepository(),
+          ),
+          subscriptionRepositoryProvider.overrideWithValue(
+            FakeSubscriptionRepository(),
           ),
           bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
         ],

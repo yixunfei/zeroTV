@@ -11,6 +11,7 @@ import 'package:zerotv_player/features/subscription/application/providers.dart';
 import '../../../helpers/fake_channel_repository.dart';
 import '../../../helpers/fake_favorites_repository.dart';
 import '../../../helpers/fake_probe_result_repository.dart';
+import '../../../helpers/fake_subscription_repository.dart';
 import '../../../helpers/fake_watch_history_repository.dart';
 
 void main() {
@@ -27,6 +28,7 @@ void main() {
     Set<String>? favoriteKeys,
     List<HistoryEntry>? historyEntries,
     Map<String, ProbeResult>? probeResults,
+    bool manual = false,
   }) async {
     favorites = FakeFavoritesRepository(favoriteKeys);
     history = FakeWatchHistoryRepository(historyEntries);
@@ -43,6 +45,17 @@ void main() {
           watchHistoryRepositoryProvider.overrideWithValue(history),
           probeResultRepositoryProvider.overrideWithValue(
             FakeProbeResultRepository(probeResults),
+          ),
+          subscriptionRepositoryProvider.overrideWithValue(
+            FakeSubscriptionRepository([
+              if (manual)
+                const Subscription(
+                  id: 'manual',
+                  name: '我的频道',
+                  kind: SubscriptionKind.manual,
+                  enabled: false,
+                ),
+            ]),
           ),
           bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
         ],
@@ -289,5 +302,17 @@ void main() {
 
     expect(find.text('CCTV-1'), findsOneWidget);
     expect(find.text('湖南卫视'), findsNothing);
+  });
+
+  testWidgets('manual channels expose a delete action', (tester) async {
+    await pumpPage(tester, manual: true);
+
+    expect(find.byTooltip('删除频道'), findsWidgets);
+  });
+
+  testWidgets('non-manual channels have no delete action', (tester) async {
+    await pumpPage(tester);
+
+    expect(find.byTooltip('删除频道'), findsNothing);
   });
 }
