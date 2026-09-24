@@ -1,12 +1,12 @@
 # zeroTV 接手开发（Handover ）
 
-> 生成时间：2026-09-24（M2 收尾后刷新）。将本文件全文提供给下一会话即可无缝接手。  
+> 生成时间：2026-09-24（M3 完成后刷新）。将本文件全文提供给下一会话即可无缝接手。  
 > 本文件描述的是"当前真实状态"，与 docs/PLAN.md（长期计划）互补；冲突时以代码为准。
 
 ## 0. 接手第一件事
 
-**M2 已全部完成、质量门全绿、已按里程碑粒度提交。** 进入会话后先确认工作树状态  
-（`git status` 应为 clean），再开新任务（M3 或 M4）。  
+**M3 已全部完成、质量门全绿、已按里程碑粒度提交。** 进入会话后先确认工作树状态  
+（`git status` 应为 clean），再开新任务（M4 或平台适配）。  
 中文提交信息必须用 `git commit -F <utf8文件>`，且文件须以无 BOM 的 UTF-8 写入  
 （PowerShell `Out-File` 管道会丢中文，用 `[System.IO.File]::WriteAllText(..., UTF8Encoding($false))`）。
 
@@ -42,8 +42,27 @@ monorepo（1 个 Flutter App + 4 个纯 Dart 包），P0 平台 Android + Window
   周期任务（`backgroundSyncDispatcher`，1h，networkType=connected）；  
   桌面应用内 `Timer`；`runBackgroundSync` 可注入容器测试；main.dart 改  
   `UncontrolledProviderScope` + 启动时 `BackgroundSyncScheduler.start()`。
+- **M3-1 EPG 数据层（commit d77078a）**：`xmltv_parser` 接入 app；drift `epg_channels`/  
+  `epg_programmes`（schema v4）；`EpgRepository` 端口（programmesFor/programmesInWindow/  
+  allChannels/replaceFeed/clear）+ drift 实现；`HttpEpgProvider`（dio bytes + gzip 解压）；  
+  `EpgSettings`（prefs `epg_url`）+ `SyncEpg`；`EpgGuide`（now/next 计算）。
+- **M3-2 EPG UI（commit 948ff58）**：`EpgIndex`（tvgId 优先、频道名规范化回退）；  
+  设置页 EPG 源配置页 `/settings/epg`；频道 tile「正在播/接下来」；播放页顶部当前节目。
+- **M3-3 多源 failover（commit 14d2bc3）**：`ResolveChannelSources`（按 identityKey  
+  去重聚合、探测为 ok 的源提升到次位）；播放器按序打开、`error` 事件自动切下一个源，  
+  显示「已切换到源 N/M」。
+- **M3-4 播放器 OSD（commit 788e210）**：`player_osd.dart`（`PlayerAspect` 预设、  
+  倍速预设、`showTrackMenu`）；底部栏音轨/字幕/宽高比/倍速；`Video.fit` 联动宽高比。
+- **M3-5 设置中心（commit f13d861）**：`AppSettings`/`AppSettingsStore`（prefs）+  
+  `appSettingsProvider`（Notifier）；设置页同步间隔/检测并发/播放缓冲/主题；  
+  联动 `AutoSyncService.syncDue(intervalOverride:)`、`RunAvailabilityProbe` 并发、  
+  `PlayerConfiguration.bufferSize`、`MaterialApp.themeMode`；后台同步尊重「仅手动」。
+- **M3-6 录制（commit c8eb50d）**：`Recording` 实体 + `RecordingRepository` 端口 +  
+  drift `recordings`（schema v5）；`StreamRecorder`（HttpClient 原始字节流落盘，  
+  不转码）；`ManageRecording`（start/stop/delete，文档目录 recordings/*.ts）；  
+  播放页录制开关；录制管理页 `/recordings`（播放/删除/时长/大小）。
 
-**M2 验收：** 全绿（app 72 例）。
+**M3 验收：** 全绿（app 114 例）。
 
 ## 3. scripts/ 目录
 
@@ -66,22 +85,27 @@ Windows 插件符号链接预建（`Initialize-WindowsPluginSymlinks`）已下�
 - 手动等价物：逐目录 `pub get` → app 内 `dart run build_runner build -d`  
   → 根目录 `dart format --set-exit-if-changed .` + `flutter analyze`  
   → 各 packages `dart test` → app `flutter test`。
-- 当前状态：全绿（最近一次全量验证 2026-09-24，app 72 例）。
+- 当前状态：全绿（最近一次全量验证 2026-09-24，app 114 例）。
 
-## 5. 下一步待办（M3，按优先级）
+## 5. 下一步待办（M4，按优先级）
 
-M2 已收尾。下一步进入 **M3 — 体验增强：专业**：
+M3 已收尾。下一步进入 **M4 — 打磨与发布**：
 
-1. EPG（订阅/解析/现在·接下来）：`packages/xmltv_parser` 已就绪，接  
-   `EpgProvider`/`EpgRepository` 端口 + 频道 `tvg-id` 匹配 + UI 展示。
-2. 录制（手动开始/停止 + 定时录制）：M3 核心交付，原样写 `.ts` 不转码。
-3. 录制文件管理（列表/播放/删除/分享）。
-4. 多源 failover（同 identityKey 多 URL 聚合 + 播放器自动切换）。
-5. 播放器 OSD 完整版（音轨/字幕轨/宽高比/倍速/缓冲策略）。
-6. 设置中心（同步间隔/检测并发/缓冲/主题/语言）。
+1. 性能与内存压测（5000+ 频道列表滚动 60fps、长时播放内存稳定）。
+2. i18n 中英（flutter_localizations + arb；当前 UI 文案为硬编码中文）。
+3. 首次启动流程打磨 + 免责声明（关于页/README 固定展示）。
+4. 应用图标（勿用电视台台标）。
+5. Release 工作流（tag 触发双端构建并上传 GitHub Releases，含 Android 签名配置）。
 
-更远：M4（性能压测、i18n 中英、首次启动流程打磨、图标、Release 工作流含  
-Android 签名配置）、M5（macOS/Linux/iOS 适配、Android TV D-pad）。
+**已知未完成/技术债：**
+- 录制为「原始字节流直存」：HLS 会存成含 TS 分片的原始响应，播放兼容性取决于源；
+  更完善的方案（ffmpeg 转封装/分片重组）留待迭代。
+- 定时录制（依赖 EPG 时间段）尚未实现，目前仅手动录制。
+- `probe_results` 无过期清理（计划中的 24h 过期未做）。
+- Windows 构建在本机受插件符号链接问题阻碍，未做构建冒烟；Android 由用户侧验证。
+- 后台同步的 WorkManager 需真机验证。
+
+更远：M5（macOS/Linux/iOS 适配、Android TV D-pad）。
 
 ## 6. 关键架构约束（违者必踩坑）
 
@@ -116,10 +140,11 @@ Android 签名配置）、M5（macOS/Linux/iOS 适配、Android TV D-pad）。
   要求用它替代 if-null 检查）。
 - 本机代理必须 `NO_PROXY=localhost,127.0.0.1`，否则 flutter test 挂（脚本已内置）。
 - **widget 测试禁用 drift 活流**（StreamQueryStore 残留 Timer → 假阳性 + 连锁挂死）：  
-  用 test/helpers/ 的内存 fake；**渲染频道列表的测试必须 override 五件套**  
+  用 test/helpers/ 的内存 fake；**渲染频道列表的测试必须 override 六件套**  
   （channelRepositoryProvider / favoritesRepositoryProvider /  
   watchHistoryRepositoryProvider / probeResultRepositoryProvider /  
-  subscriptionRepositoryProvider）+ bootstrapProvider。  
+  subscriptionRepositoryProvider / epgIndexProvider）+ bootstrapProvider；  
+  **app 级/设置页测试还需 override `sharedPreferencesProvider`**（app 现在读主题设置）。  
   PopupMenu/对话框流程用 `pumpAndSettle`（菜单动画 ~300ms，固定次数单帧  
   pump 会 tap miss）；纯列表渲染沿用 5 次单帧 pump。
 - **Windows 构建遗留问题**：flutter 创建插件符号链接在本机崩溃（errno=2），  
@@ -135,7 +160,11 @@ Android 签名配置）、M5（macOS/Linux/iOS 适配、Android TV D-pad）。
 - 默认源定义：`apps/player/lib/features/subscription/domain/default_subscription.dart`
 - 订阅 DI 装配：`apps/player/lib/features/subscription/application/providers.dart`
 - 后台同步：`apps/player/lib/features/subscription/application/background_sync.dart`
-- 频道 providers（过滤器/收藏/历史）：`apps/player/lib/features/channel/application/providers.dart`
+- 频道 providers（过滤器/收藏/历史/源解析）：`apps/player/lib/features/channel/application/providers.dart`
 - 自定义频道 providers：`apps/player/lib/features/channel/application/custom_channel_providers.dart`
 - 检测 providers：`apps/player/lib/features/detection/application/providers.dart`
+- EPG providers（索引/now-next/同步）：`apps/player/lib/features/epg/application/providers.dart`
+- 录制 providers：`apps/player/lib/features/recording/application/providers.dart`
+- 全局设置（主题/同步/并发/缓冲）：`apps/player/lib/core/settings/settings_providers.dart`
+- drift schema：`apps/player/lib/core/database/app_database.dart`（当前 v5）
 - 项目长期记忆：`.workbuddy/memory/MEMORY.md`（gitignored）
