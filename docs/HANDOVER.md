@@ -82,8 +82,8 @@ monorepo（1 个 Flutter App + 4 个纯 Dart 包），P0 平台 Android + Window
   异常消息与默认源名仍为中文（不进 arb）。
 
 - **M4 应用图标 + Release 工作流（commit b52e8e3 + b720066）**：  
-  `scripts/gen_app_icon.py`（Pillow 绘制圆角深蓝电视+播放三角，不用台标）重新生成  
-  Android `mipmap-*/ic_launcher.png` 与 Windows `app_icon.ico`；  
+  `scripts/gen_app_icon.py`（Pillow 处理 `assets/brand/logo.jpg`：居中裁方 → 圆角蒙版 →  
+  全套尺寸）重新生成 Android `mipmap-*/ic_launcher.png` 与 Windows `app_icon.ico`；  
   `.github/workflows/release.yaml`：tag `v*` 触发，Android 分 ABI APK + universal、  
   Windows 便携 zip，SHA256 校验，draft Release；  
   Android 签名链路：`android/key.properties`（本地，gitignored）→ CI 环境变量  
@@ -91,6 +91,13 @@ monorepo（1 个 Flutter App + 4 个纯 Dart 包），P0 平台 Android + Window
   `gradle.properties` 关 `kotlin.incremental`（跨盘根 pub 缓存场景会坏）；  
   `ci.yaml` 代码生成步骤补 `flutter gen-l10n`；`.gitignore` 排除签名材料，  
   修正 `lib/l10n/untranslated.txt` 路径（原规则少了 `lib/`）。
+
+- **M4 一键打包脚本**：`scripts/package_windows.ps1` 与 `scripts/package_android.ps1`，  
+  在 `build_*` 之上多做产物拷贝/重命名/压缩/SHA256，落到 `build/dist/`，命名与  
+  release.yaml 完全一致（本地包可直接当 Release 附件）。`-SkipBuild` 跳过 flutter build  
+  复用上次产物。注意：**`.ps1` 含中文必须保存为 UTF-8 with BOM**（PS 5.1 无 BOM  
+  按 ANSI 解析会乱码报错）；字符串内插值 `"zerotv-$version-windows-x64"` 会误判  
+  `version-windows` 为变量名，必须 `"zerotv-${version}-windows-x64"`。
 
 - **M4 频道列表滚动性能压测（commit ee362f3）**：  
   `apps/player/integration_test/perf/`：`perf_fixture.dart` 造 5000 频道 × 20 组假数据；  
@@ -106,11 +113,14 @@ monorepo（1 个 Flutter App + 4 个纯 Dart 包），P0 平台 Android + Window
 
 ```
 scripts/
-  common.ps1          共享函数库（依赖检查/代理绕过/pub get/代码生成），勿直接运行
-  run_tests.ps1       一键质量门，与 CI 同构（-SkipCodegen / -Fast）
-  build_windows.ps1   Windows 构建（-Mode debug|release，默认 release）
-  build_android.ps1   Android 构建（-Target apk|aab、-Mode debug|release）
-  README.md           使用说明
+  common.ps1            共享函数库（依赖检查/代理绕过/pub get/代码生成），勿直接运行
+  run_tests.ps1         一键质量门，与 CI 同构（-SkipCodegen / -Fast）
+  build_windows.ps1     Windows 构建（-Mode debug|release，默认 release）
+  build_android.ps1     Android 构建（-Target apk|aab、-Mode debug|release）
+  package_windows.ps1   Windows 一键打包（build + zip + SHA256 → build/dist/）
+  package_android.ps1   Android 一键打包（分 ABI + universal + SHA256 → build/dist/）
+  gen_app_icon.py       从 assets/brand/logo.jpg 重新生成全套应用图标
+  README.md             使用说明
 ```
 
 用法：`powershell -File scripts\run_tests.ps1`（提交前必跑，预判 CI）。  
@@ -135,11 +145,14 @@ M4 主体功能全部提交。剩余：
 1. ~~性能与内存压测~~ 频道列表滚动已压测（ee362f3，远超 60fps）；长时播放内存留真机观测。
 2. ~~i18n 中英~~ 已完成（7ee2bae）。
 3. ~~首次启动流程打磨 + 免责声明~~ 已完成（7ee2bae）。
-4. ~~应用图标~~ 已完成（b52e8e3）；**视觉效果需人工确认**：`build/icon_preview.png`。
+4. ~~应用图标~~ 已完成（b52e8e3 + 本轮替换为用户提供的 `assets/brand/logo.jpg`）。  
+   重新生成：`python scripts/gen_app_icon.py`。
 5. ~~Release 工作流~~ 已完成（b52e8e3）；**首次发版前**：在 GitHub repo 配置  
    `ZEROTV_KEYSTORE_B64`/`ZEROTV_KEYSTORE_PASSWORD`/`ZEROTV_KEY_ALIAS`/`ZEROTV_KEY_PASSWORD`  
    四个 secret；本地生成 keystore：`keytool -genkey -v -keystore zerotv.jks -keyalg RSA -keysize 2048 -validity 10000 -alias zerotv`，  
-   `base64 -w0 zerotv.jks` 作为 `ZEROTV_KEYSTORE_B64`。然后 `git tag v1.0.0 && git push --tags` 触发。
+   `base64 -w0 zerotv.jks` 作为 `ZEROTV_KEYSTORE_B64`。然后 `git tag v1.0.0 && git push --tags` 触发。  
+   **本地一键包**：`scripts\package_windows.ps1` / `scripts\package_android.ps1`，产物  
+   `build\dist\zerotv-0.1.0-{windows-x64.zip, android-*.apk}`，与 release.yaml 命名一致。
 
 **已知未完成/技术债：**
 - 录制为「原始字节流直存」：HLS 会存成含 TS 分片的原始响应，播放兼容性取决于源；  

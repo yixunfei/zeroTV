@@ -6,8 +6,11 @@
 | 脚本 | 用途 | 常用参数 |
 | --- | --- | --- |
 | `run_tests.ps1` | 一键质量门：依赖检查 → 逐包 pub get → drift 代码生成 → 格式检查 → 静态分析 → 全部测试（与 CI 同构） | `-SkipCodegen`、`-Fast` |
-| `build_windows.ps1` | Windows 桌面端构建 | `-Mode debug|release`（默认 release） |
-| `build_android.ps1` | Android 构建（APK/AAB） | `-Target apk|aab`、`-Mode debug|release` |
+| `build_windows.ps1` | Windows 桌面端构建（仅编译，不打包） | `-Mode debug\|release`（默认 release） |
+| `build_android.ps1` | Android 构建（仅编译，不打包） | `-Target apk\|aab`、`-Mode debug\|release` |
+| `package_windows.ps1` | Windows 一键打包：build + zip + SHA256，产物在 `build\dist\` | `-SkipBuild` |
+| `package_android.ps1` | Android 一键打包：split-per-abi + universal APK + SHA256，产物在 `build\dist\` | `-SkipBuild` |
+| `gen_app_icon.py` | 从 `assets/brand/logo.jpg` 重新生成全套应用图标（Android mipmap + Windows ICO） | — |
 | `common.ps1` | 共享函数库，被上述脚本 dot-source，勿直接运行 | — |
 
 ## 运行方式
@@ -17,9 +20,16 @@
 
 ```powershell
 powershell -File scripts\run_tests.ps1        # 提交前跑一遍，预判 CI
-powershell -File scripts\build_windows.ps1    # 产出 Windows release
-powershell -File scripts\build_android.ps1    # 产出 Android release APK
+powershell -File scripts\build_windows.ps1    # 仅编译 Windows release
+powershell -File scripts\build_android.ps1    # 仅编译 Android release APK
+powershell -File scripts\package_windows.ps1  # 一键：build + 打成 zip + SHA256
+powershell -File scripts\package_android.ps1  # 一键：build 分 ABI + universal APK + SHA256
+python scripts\gen_app_icon.py                # 替换 assets/brand/logo.jpg 后重新生成图标
 ```
+
+打包产物落在 `build\dist\`，文件命名与 `.github/workflows/release.yaml` 完全一致
+（`zerotv-<version>-{windows-x64.zip, android-<abi>.apk}` + `SHA256SUMS-*.txt`），
+可直接作为 GitHub Release 附件上传。
 
 ## 前置要求
 
