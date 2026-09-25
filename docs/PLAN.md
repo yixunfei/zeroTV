@@ -271,9 +271,18 @@ App 本体仍不存储/分发任何频道内容，只内置"指向公开列表�
    播放器 OSD 完整版（音轨/字幕/宽高比/倍速）、设置中心（同步间隔/检测并发/
    播放缓冲/主题）、录制（schema v5 + 原始字节流落盘 + 播放页开关 + 录制管理页）。
    analyze + 全部测试绿（app 114 例）。**M3 全部收尾。**
-8. M4 进行中：~~关于页 + 首次免责声明~~、~~i18n 中英~~ 已完成并提交（7ee2bae：
-   `/settings/about`、首启不可关闭弹窗、README 免责声明、`settings.disclaimerAccepted`；
-   gen-l10n 中英 arb + 设置页语言切换 `settings.locale`）。
-   剩余：应用图标、Release 工作流（tag 触发双端构建 + Android 签名）、性能压测。
+8. M4 进行中：~~关于页 + 首次免责声明~~、~~i18n 中英~~、~~应用图标~~、
+   ~~Release 工作流~~、~~频道列表滚动压测~~ 已完成（最新 commit ee362f3）。
+   - 7ee2bae：`/settings/about`、首启不可关闭弹窗、README 免责声明、
+     `settings.disclaimerAccepted`；gen-l10n 中英 arb + 设置页语言切换。
+   - b52e8e3：`scripts/gen_app_icon.py` 全套应用图标（无台标）、
+     `.github/workflows/release.yaml`（tag v* 触发 Android 分 ABI + Windows zip
+     + SHA256 + draft Release）、Android 签名链路（key.properties / env secrets /
+     debug 回退）、`ci.yaml` 补 gen-l10n、`.gitignore` 排除签名材料。
+   - b720066：修正 `untranslated.txt` 的 gitignore 路径（补 `lib/`）。
+   - ee362f3：`apps/player/integration_test/perf/` 5000 频道滚动压测；
+     本机 Windows 实测 1682 帧 avg=4.59ms、p95=10.21ms、jank=0.5%。
+   **M4 剩余**：图标视觉效果人工确认 → 配 GitHub secrets → 打 tag v1.0.0 首发；
+   长时播放内存留真机观测。
    技术债：定时录制、探测结果 24h 过期清理、录制转封装、Windows 构建冒烟、
    WorkManager 真机验证。

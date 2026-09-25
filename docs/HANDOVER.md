@@ -1,16 +1,18 @@
 # zeroTV 接手开发（Handover ）
 
-> 生成时间：2026-09-24（M4-2/3 提交后刷新）。将本文件全文提供给下一会话即可无缝接手。  
+> 生成时间：2026-09-25（M4 应用图标/Release 工作流/滚动压测提交后刷新）。将本文件全文提供给下一会话即可无缝接手。  
 > 本文件描述的是"当前真实状态"，与 docs/PLAN.md（长期计划）互补；冲突时以代码为准。
 
 ## 0. 接手第一件事
 
-**M4-3 与 M4-2 已提交（commit 7ee2bae），工作区干净（`untranslated.txt` 已 gitignore）。**  
-下一步是 M4 剩余项：应用图标 → Release 工作流 → 性能压测（见 §5）。  
+**M4 主体功能全部提交（最新 commit ee362f3），工作区干净。**  
+M4 还剩：图标视觉效果人工确认 → v1.0.0 打 tag 触发 Release 工作流（首次跑要配  
+`ZEROTV_KEYSTORE_B64`/`ZEROTV_KEYSTORE_PASSWORD`/`ZEROTV_KEY_ALIAS`/`ZEROTV_KEY_PASSWORD`  
+四个 repo secret）→ 真机长时播放内存观测。  
 测试前必须 `flutter gen-l10n`（已并入 `scripts/common.ps1` 的 `Invoke-Codegen`）；  
-`lib/l10n/generated/` 不入库。widget 测试若断言中文，须把 `settings.locale` 设为 `zh`  
-（本机系统语言为英文，否则跟随系统会渲染英文）。独立 `MaterialApp` 测试用  
-`test/helpers/localized_app.dart`。  
+`lib/l10n/generated/` 与 `lib/l10n/untranslated.txt` 均不入库。widget 测试若断言中文，须把  
+`settings.locale` 设为 `zh`（本机系统语言为英文，否则跟随系统会渲染英文）。独立  
+`MaterialApp` 测试用 `test/helpers/localized_app.dart`。  
 中文提交信息必须用 `git commit -F <utf8文件>`，且文件须以无 BOM 的 UTF-8 写入  
 （PowerShell `Out-File` 管道会丢中文，用 `[System.IO.File]::WriteAllText(..., UTF8Encoding($false))`）。
 
@@ -79,6 +81,27 @@ monorepo（1 个 Flutter App + 4 个纯 Dart 包），P0 平台 Android + Window
   （prefs `settings.locale`，null = 跟随系统）；设置页「语言」可选跟随系统/中文/English。  
   异常消息与默认源名仍为中文（不进 arb）。
 
+- **M4 应用图标 + Release 工作流（commit b52e8e3 + b720066）**：  
+  `scripts/gen_app_icon.py`（Pillow 绘制圆角深蓝电视+播放三角，不用台标）重新生成  
+  Android `mipmap-*/ic_launcher.png` 与 Windows `app_icon.ico`；  
+  `.github/workflows/release.yaml`：tag `v*` 触发，Android 分 ABI APK + universal、  
+  Windows 便携 zip，SHA256 校验，draft Release；  
+  Android 签名链路：`android/key.properties`（本地，gitignored）→ CI 环境变量  
+  `ZEROTV_KEYSTORE_B64`（+ password/alias/key password）回退 → 都无则 debug 签名；  
+  `gradle.properties` 关 `kotlin.incremental`（跨盘根 pub 缓存场景会坏）；  
+  `ci.yaml` 代码生成步骤补 `flutter gen-l10n`；`.gitignore` 排除签名材料，  
+  修正 `lib/l10n/untranslated.txt` 路径（原规则少了 `lib/`）。
+
+- **M4 频道列表滚动性能压测（commit ee362f3）**：  
+  `apps/player/integration_test/perf/`：`perf_fixture.dart` 造 5000 频道 × 20 组假数据；  
+  `perf_metrics.dart` 汇总 `FrameTiming` → avg/p95/p99/max/jank；  
+  `scroll_perf_test.dart` 在真桌面进程渲染 `ChannelListPage`（复用 widget test 的 fake 六件套  
+  + sharedPreferences override），`tester.fling` 上下各 30 次扫动、`addTimingsCallback` 采集。  
+  不硬断言 60fps，只在 avg>50ms 时 fail；本机 Windows 实测 1682 帧 avg=4.59ms、  
+  p95=10.21ms、p99=14.04ms、jank=0.5%，远在预算内。  
+  跑法：`flutter test integration_test/perf/scroll_perf_test.dart -d windows`。  
+  长时播放内存压测不做进集成测试（需真流+media_kit_libs），列入真机验证项。
+
 ## 3. scripts/ 目录
 
 ```
@@ -100,25 +123,34 @@ Windows 插件符号链接预建（`Initialize-WindowsPluginSymlinks`）已下�
 - 手动等价物：逐目录 `pub get` → app 内 `dart run build_runner build -d`  
   → 根目录 `dart format --set-exit-if-changed .` + `flutter analyze`  
   → 各 packages `dart test` → app `flutter test`。
-- 当前状态：全绿（最近一次全量验证 2026-09-24，app 117 例）。
+- 性能压测：`flutter test integration_test/perf/scroll_perf_test.dart -d windows`  
+  （需可用的桌面/真机设备；不进 CI 因为 CI 没有显示设备，且帧时间受宿主差异大）。
+- 当前状态：全绿（最近一次全量验证 2026-09-25，app 119 例 + 4 个纯 Dart 包；  
+  滚动压测 1682 帧 avg=4.59ms / jank=0.5%）。
 
-## 5. 下一步待办（M4，按优先级）
+## 5. 下一步待办（M4 收尾 + 发布）
 
-M3 已收尾，M4-2/3 已提交。M4 剩余：
+M4 主体功能全部提交。剩余：
 
-1. 性能与内存压测（5000+ 频道列表滚动 60fps、长时播放内存稳定）。
-2. ~~i18n 中英~~ 已完成并提交（7ee2bae）。
-3. ~~首次启动流程打磨 + 免责声明~~ 已完成并提交（7ee2bae）。
-4. 应用图标（勿用电视台台标）。
-5. Release 工作流（tag 触发双端构建并上传 GitHub Releases，含 Android 签名配置）。
+1. ~~性能与内存压测~~ 频道列表滚动已压测（ee362f3，远超 60fps）；长时播放内存留真机观测。
+2. ~~i18n 中英~~ 已完成（7ee2bae）。
+3. ~~首次启动流程打磨 + 免责声明~~ 已完成（7ee2bae）。
+4. ~~应用图标~~ 已完成（b52e8e3）；**视觉效果需人工确认**：`build/icon_preview.png`。
+5. ~~Release 工作流~~ 已完成（b52e8e3）；**首次发版前**：在 GitHub repo 配置  
+   `ZEROTV_KEYSTORE_B64`/`ZEROTV_KEYSTORE_PASSWORD`/`ZEROTV_KEY_ALIAS`/`ZEROTV_KEY_PASSWORD`  
+   四个 secret；本地生成 keystore：`keytool -genkey -v -keystore zerotv.jks -keyalg RSA -keysize 2048 -validity 10000 -alias zerotv`，  
+   `base64 -w0 zerotv.jks` 作为 `ZEROTV_KEYSTORE_B64`。然后 `git tag v1.0.0 && git push --tags` 触发。
 
 **已知未完成/技术债：**
-- 录制为「原始字节流直存」：HLS 会存成含 TS 分片的原始响应，播放兼容性取决于源；
+- 录制为「原始字节流直存」：HLS 会存成含 TS 分片的原始响应，播放兼容性取决于源；  
   更完善的方案（ffmpeg 转封装/分片重组）留待迭代。
 - 定时录制（依赖 EPG 时间段）尚未实现，目前仅手动录制。
 - `probe_results` 无过期清理（计划中的 24h 过期未做）。
-- Windows 构建在本机受插件符号链接问题阻碍，未做构建冒烟；Android 由用户侧验证。
+- Windows 构建在本机受插件符号链接问题阻碍，已通过预建符号链接（见 §3）缓解；  
+  Android APK release 构建链路本机已验证可跑（61.9MB debug 签名包）。
 - 后台同步的 WorkManager 需真机验证。
+- **真机验证清单**（发 v1.0.0 前）：Android 真机安装分 ABI APK、长时播放内存稳定、  
+  WorkManager 后台同步触发、图标在各启动器下的视觉表现。
 
 更远：M5（macOS/Linux/iOS 适配、Android TV D-pad）。
 
@@ -184,4 +216,7 @@ M3 已收尾，M4-2/3 已提交。M4 剩余：
 - 录制 providers：`apps/player/lib/features/recording/application/providers.dart`
 - 全局设置（主题/同步/并发/缓冲）：`apps/player/lib/core/settings/settings_providers.dart`
 - drift schema：`apps/player/lib/core/database/app_database.dart`（当前 v5）
+- 性能压测：`apps/player/integration_test/perf/`（fixture/metrics/scroll_perf_test）
+- 图标生成：`scripts/gen_app_icon.py`（改完重跑覆盖 Android PNG + Windows ICO）
+- Release 工作流：`.github/workflows/release.yaml`（tag v* 触发）
 - 项目长期记忆：`.workbuddy/memory/MEMORY.md`（gitignored）
