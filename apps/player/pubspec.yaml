@@ -39,6 +39,8 @@ dev_dependencies:
   drift_dev: ^2.35.0
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   very_good_analysis: ^10.3.0
 
 # material_ui/cupertino_ui 1.3.0/1.1.0 (pulled by go_router 18) use
