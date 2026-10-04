@@ -3,6 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/presentation/add_custom_channel_page.dart';
 import 'package:zerotv_player/features/channel/presentation/channel_list_page.dart';
+import 'package:zerotv_player/features/channel/presentation/dead_channels_page.dart';
+import 'package:zerotv_player/features/channel/presentation/favorites_page.dart';
+import 'package:zerotv_player/features/channel/presentation/history_page.dart';
+import 'package:zerotv_player/features/epg/presentation/epg_guide_page.dart';
 import 'package:zerotv_player/features/epg/presentation/epg_settings_page.dart';
 import 'package:zerotv_player/features/player/presentation/player_page.dart';
 import 'package:zerotv_player/features/recording/presentation/recordings_page.dart';
@@ -47,6 +51,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RecordingsPage(),
       ),
       GoRoute(
+        path: '/settings/dead-channels',
+        name: 'dead-channels',
+        builder: (context, state) => const DeadChannelsPage(),
+      ),
+      GoRoute(
         path: '/add-subscription',
         name: 'add-subscription',
         builder: (context, state) => const AddSubscriptionPage(),
@@ -55,6 +64,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/add-channel',
         name: 'add-channel',
         builder: (context, state) => const AddCustomChannelPage(),
+      ),
+      GoRoute(
+        path: '/edit-channel',
+        name: 'edit-channel',
+        builder: (context, state) {
+          final channel = state.extra;
+          if (channel is! Channel) return const ChannelListPage();
+          return AddCustomChannelPage(existing: channel);
+        },
+      ),
+      GoRoute(
+        path: '/history',
+        name: 'history',
+        builder: (context, state) => const HistoryPage(),
+      ),
+      GoRoute(
+        path: '/favorites',
+        name: 'favorites',
+        builder: (context, state) => const FavoritesPage(),
+      ),
+      GoRoute(
+        path: '/guide',
+        name: 'guide',
+        builder: (context, state) => const EpgGuidePage(),
       ),
       GoRoute(
         path: '/player',

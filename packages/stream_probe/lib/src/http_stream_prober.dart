@@ -12,13 +12,26 @@ import 'package:iptv_core/iptv_core.dart';
 /// are reachable. A deep probe (fetching and validating the playlist body)
 /// is a planned strategy, not part of this implementation.
 class HttpStreamProber implements StreamProber {
-  /// Creates a prober. [client] is injectable for testing.
-  HttpStreamProber({HttpClient? client}) : _client = client ?? HttpClient();
+  /// Creates a prober. [client] is injectable for testing; an injected
+  /// client stays owned by the caller and is not closed by [close].
+  HttpStreamProber({HttpClient? client})
+    : _client = client ?? HttpClient(),
+      _ownsClient = client == null {
+    if (_ownsClient) {
+      _client
+        ..connectionTimeout = const Duration(seconds: 8)
+        ..idleTimeout = const Duration(seconds: 15)
+        ..maxConnectionsPerHost = 8;
+    }
+  }
 
   final HttpClient _client;
+  final bool _ownsClient;
 
-  /// Releases the underlying [HttpClient].
-  void close() => _client.close();
+  /// Releases the underlying [HttpClient] if this prober created it.
+  void close() {
+    if (_ownsClient) _client.close(force: true);
+  }
 
   @override
   Future<ProbeResult> probe(
@@ -31,13 +44,20 @@ class HttpStreamProber implements StreamProber {
     }
     final sw = Stopwatch()..start();
     try {
-      final status =
-          await _head(uri, timeout) ?? await _rangedGet(uri, timeout);
+      final status = await (() async {
+        final head = await _request(uri, 'HEAD', timeout);
+        if (head == HttpStatus.methodNotAllowed ||
+            head == HttpStatus.forbidden ||
+            head == HttpStatus.notImplemented) {
+          return _request(uri, 'GET', timeout - sw.elapsed);
+        }
+        return head;
+      })();
       sw.stop();
-      if (status == null) {
-        return _result(url, ProbeStatus.dead, error: 'no response');
-      }
-      final ok = status >= 200 && status < 400;
+      // Redirects are followed automatically; a final 3xx means the
+      // redirect limit was hit or redirects were disabled, i.e. the
+      // stream itself never answered.
+      final ok = status >= 200 && status < 300;
       return _result(
         url,
         ok ? ProbeStatus.ok : ProbeStatus.dead,
@@ -52,30 +72,30 @@ class HttpStreamProber implements StreamProber {
     }
   }
 
-  /// Returns the status code, or null when HEAD is not honoured and a
-  /// ranged GET should be attempted.
-  Future<int?> _head(Uri uri, Duration timeout) async {
+  Future<int> _request(Uri uri, String method, Duration timeout) async {
+    HttpClientRequest? request;
+    var expired = false;
     try {
-      final request = await _client.headUrl(uri).timeout(timeout);
-      final response = await request.close().timeout(timeout);
-      await response.drain<void>();
-      // Many IPTV servers reject HEAD but serve GET fine.
-      if (response.statusCode == HttpStatus.methodNotAllowed ||
-          response.statusCode == HttpStatus.forbidden) {
-        return null;
-      }
-      return response.statusCode;
-    } on HttpException {
-      return null;
+      return await (() async {
+        final opened = await _client.openUrl(method, uri);
+        request = opened;
+        if (expired) {
+          opened.abort();
+          throw TimeoutException('probe deadline expired');
+        }
+        if (method == 'GET') {
+          opened.headers.set(HttpHeaders.rangeHeader, 'bytes=0-511');
+        }
+        final response = await opened.close();
+        // Live servers may ignore Range and never close the response.
+        // Headers are sufficient for this shallow availability probe.
+        await response.listen((_) {}).cancel();
+        return response.statusCode;
+      })().timeout(timeout);
+    } finally {
+      expired = true;
+      request?.abort();
     }
-  }
-
-  Future<int?> _rangedGet(Uri uri, Duration timeout) async {
-    final request = await _client.getUrl(uri).timeout(timeout);
-    request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-511');
-    final response = await request.close().timeout(timeout);
-    await response.drain<void>();
-    return response.statusCode;
   }
 
   ProbeResult _result(

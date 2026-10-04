@@ -14,7 +14,7 @@ abstract interface class EpgRepository {
   /// list without one query per channel.
   Future<List<EpgProgram>> programmesInWindow(DateTime from, DateTime to);
 
-  /// Returns all EPG channel metadata, keyed by XMLTV channel id.
+  /// Returns all stored EPG channel metadata, in no guaranteed order.
   Future<List<EpgChannel>> allChannels();
 
   /// Replaces the stored feed (channels + programmes).

@@ -24,6 +24,7 @@ class Subscription {
     this.refreshInterval = const Duration(hours: 6),
     this.enabled = true,
     this.lastSyncedAt,
+    this.channelGroupPrefix,
   });
 
   /// Stable unique id (uuid).
@@ -35,7 +36,8 @@ class Subscription {
   /// Origin kind of this subscription.
   final SubscriptionKind kind;
 
-  /// Remote URL or local file path; null for [SubscriptionKind.pastedText].
+  /// Remote URL or local file path; null for [SubscriptionKind.pastedText]
+  /// and [SubscriptionKind.manual].
   final String? uri;
 
   /// How often the subscription is re-fetched. Defaults to 6 hours,
@@ -47,6 +49,12 @@ class Subscription {
 
   /// Last successful sync time; null if never synced.
   final DateTime? lastSyncedAt;
+
+  /// Optional prefix prepended to every channel group of this
+  /// subscription (`"<prefix> · <original group>"`), grouping the
+  /// subscription's channels into their own section of the group
+  /// switcher. Null means the original playlist groups are kept as-is.
+  final String? channelGroupPrefix;
 
   /// Whether this subscription is due for a sync now.
   bool get isDue {

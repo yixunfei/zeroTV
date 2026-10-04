@@ -36,4 +36,16 @@ class FakeWatchHistoryRepository implements WatchHistoryRepository {
       ..sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
     return sorted.take(limit).toList();
   }
+
+  @override
+  Future<void> remove(String channelKey) async {
+    _entries.removeWhere((e) => e.channelKey == channelKey);
+    _changes.add(List.unmodifiable(_entries));
+  }
+
+  @override
+  Future<void> clear() async {
+    _entries.clear();
+    _changes.add(List.unmodifiable(_entries));
+  }
 }

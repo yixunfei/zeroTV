@@ -11,15 +11,35 @@ class DriftWatchHistoryRepository implements WatchHistoryRepository {
 
   @override
   Future<void> record(HistoryEntry entry) {
-    return _db
-        .into(_db.watchHistory)
-        .insert(
-          db.WatchHistoryCompanion.insert(
-            channelKey: entry.channelKey,
-            channelName: entry.channelName,
-            watchedAt: entry.watchedAt,
-          ),
-        );
+    // Keep one row per channel: watchRecent only ever surfaces the latest
+    // entry per channelKey, so older duplicates are dead weight and the
+    // table would otherwise grow without bounds.
+    return _db.transaction(() async {
+      await (_db.delete(
+        _db.watchHistory,
+      )..where((t) => t.channelKey.equals(entry.channelKey))).go();
+      await _db
+          .into(_db.watchHistory)
+          .insert(
+            db.WatchHistoryCompanion.insert(
+              channelKey: entry.channelKey,
+              channelName: entry.channelName,
+              watchedAt: entry.watchedAt,
+            ),
+          );
+    });
+  }
+
+  @override
+  Future<void> remove(String channelKey) {
+    return (_db.delete(
+      _db.watchHistory,
+    )..where((t) => t.channelKey.equals(channelKey))).go();
+  }
+
+  @override
+  Future<void> clear() {
+    return _db.delete(_db.watchHistory).go();
   }
 
   @override

@@ -10,10 +10,10 @@ import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/epg/application/epg_guide.dart';
 import 'package:zerotv_player/features/epg/application/epg_index.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
-import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 import '../../../helpers/fake_channel_repository.dart';
+import '../../../helpers/fake_dead_channel_repository.dart';
 import '../../../helpers/fake_favorites_repository.dart';
 import '../../../helpers/fake_probe_result_repository.dart';
 import '../../../helpers/fake_subscription_repository.dart';
@@ -39,6 +39,20 @@ void main() {
   }) async {
     favorites = FakeFavoritesRepository(favoriteKeys);
     history = FakeWatchHistoryRepository(historyEntries);
+    final effectiveProbeResults =
+        probeResults ??
+        {
+          'cctv-1': ProbeResult(
+            url: 'http://a/1',
+            status: ProbeStatus.ok,
+            checkedAt: DateTime.now(),
+          ),
+          '湖南卫视': ProbeResult(
+            url: 'http://a/2',
+            status: ProbeStatus.ok,
+            checkedAt: DateTime.now(),
+          ),
+        };
     SharedPreferences.setMockInitialValues({
       'settings.disclaimerAccepted': true,
     });
@@ -56,7 +70,7 @@ void main() {
           favoritesRepositoryProvider.overrideWithValue(favorites),
           watchHistoryRepositoryProvider.overrideWithValue(history),
           probeResultRepositoryProvider.overrideWithValue(
-            FakeProbeResultRepository(probeResults),
+            FakeProbeResultRepository(effectiveProbeResults),
           ),
           subscriptionRepositoryProvider.overrideWithValue(
             FakeSubscriptionRepository([
@@ -72,7 +86,10 @@ void main() {
           epgIndexProvider.overrideWith(
             (ref) async => epgIndex ?? EpgIndex.empty,
           ),
-          bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
+          deadChannelRepositoryProvider.overrideWithValue(
+            FakeDeadChannelRepository(),
+          ),
+          bootstrapProvider.overrideWith((ref) async {}),
         ],
         child: localizedApp(home: const ChannelListPage()),
       ),
@@ -171,6 +188,8 @@ void main() {
     expect(find.byType(ChoiceChip), findsNothing); // chips hidden in search
 
     await tester.enterText(find.byType(TextField), 'cctv');
+    // Advance past the 300ms search debounce.
+    await tester.pump(const Duration(milliseconds: 400));
     for (var i = 0; i < 5; i++) {
       await tester.pump();
     }
@@ -185,6 +204,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'cctv');
+    // Advance past the 300ms search debounce.
+    await tester.pump(const Duration(milliseconds: 400));
     for (var i = 0; i < 5; i++) {
       await tester.pump();
     }
@@ -205,6 +226,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.search));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '不存在的频道');
+    // Advance past the 300ms search debounce.
+    await tester.pump(const Duration(milliseconds: 400));
     for (var i = 0; i < 5; i++) {
       await tester.pump();
     }
@@ -278,19 +301,29 @@ void main() {
         'cctv-1': ProbeResult(
           url: 'http://a/1',
           status: ProbeStatus.ok,
-          checkedAt: DateTime(2026, 9, 22, 8),
+          checkedAt: DateTime.now(),
+          latency: const Duration(milliseconds: 42),
         ),
         '湖南卫视': ProbeResult(
           url: 'http://a/2',
           status: ProbeStatus.dead,
-          checkedAt: DateTime(2026, 9, 22, 8),
+          checkedAt: DateTime.now(),
         ),
       },
     );
 
-    // '可用' appears twice: the filter chip and CCTV-1's status dot.
-    expect(find.text('可用'), findsNWidgets(2));
+    // The app now opens on the Available tab; switch to All to inspect
+    // status badges for both working and failed channels.
+    await tester.tap(find.widgetWithText(ChoiceChip, '全部'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump();
+    }
+
+    // The badge includes the measured latency, while the filter chip keeps
+    // the short label.
+    expect(find.textContaining('可用'), findsNWidgets(2));
     expect(find.text('失效'), findsOneWidget);
+    expect(find.textContaining('42 ms'), findsOneWidget);
   });
 
   testWidgets('available chip shows only ok channels', (tester) async {
@@ -300,12 +333,12 @@ void main() {
         'cctv-1': ProbeResult(
           url: 'http://a/1',
           status: ProbeStatus.ok,
-          checkedAt: DateTime(2026, 9, 22, 8),
+          checkedAt: DateTime.now(),
         ),
         '湖南卫视': ProbeResult(
           url: 'http://a/2',
           status: ProbeStatus.dead,
-          checkedAt: DateTime(2026, 9, 22, 8),
+          checkedAt: DateTime.now(),
         ),
       },
     );
@@ -317,6 +350,53 @@ void main() {
 
     expect(find.text('CCTV-1'), findsOneWidget);
     expect(find.text('湖南卫视'), findsNothing);
+  });
+
+  testWidgets('available chip keeps streams whose protocol cannot be probed', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      probeResults: {
+        'cctv-1': ProbeResult(
+          url: 'udp://239.0.0.1:1234',
+          status: ProbeStatus.unsupported,
+          checkedAt: DateTime.now(),
+        ),
+        '湖南卫视': ProbeResult(
+          url: 'http://a/2',
+          status: ProbeStatus.dead,
+          checkedAt: DateTime.now(),
+        ),
+      },
+    );
+
+    expect(find.text('CCTV-1'), findsOneWidget);
+    expect(find.text('湖南卫视'), findsNothing);
+  });
+
+  testWidgets('stale probe results are treated as unknown', (tester) async {
+    await pumpPage(
+      tester,
+      probeResults: {
+        'cctv-1': ProbeResult(
+          url: 'http://a/1',
+          status: ProbeStatus.ok,
+          checkedAt: DateTime.now().subtract(
+            ProbeResult.stalenessThreshold + const Duration(hours: 1),
+          ),
+        ),
+        '湖南卫视': ProbeResult(
+          url: 'http://a/2',
+          status: ProbeStatus.ok,
+          checkedAt: DateTime.now(),
+        ),
+      },
+    );
+
+    // The expired ok result no longer keeps CCTV-1 in the available view.
+    expect(find.text('CCTV-1'), findsNothing);
+    expect(find.text('湖南卫视'), findsOneWidget);
   });
 
   testWidgets('manual channels expose a delete action', (tester) async {

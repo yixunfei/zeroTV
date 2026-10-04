@@ -20,8 +20,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   /// Replaces the settings and persists them.
   Future<void> update(AppSettings settings) async {
-    state = settings;
+    // Persist before touching state: writing state first would leave the
+    // UI on the new value while storage still holds the old one when the
+    // save fails (silently reverting after a restart).
     await ref.read(appSettingsStoreProvider).save(settings);
+    state = settings;
   }
 
   /// Updates just the sync interval; null disables automatic sync.
@@ -52,6 +55,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   /// Records that the first-run disclaimer was acknowledged.
   Future<void> acceptDisclaimer() {
     return update(state.copyWith(disclaimerAccepted: true));
+  }
+
+  /// Enables or disables the overseas-network warning.
+  Future<void> setOverseasNetworkHint({required bool enabled}) {
+    return update(state.copyWith(showOverseasNetworkHint: enabled));
   }
 
   /// Sets the UI locale; null follows the system locale.

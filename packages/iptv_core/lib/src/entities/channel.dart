@@ -18,7 +18,8 @@ class Channel {
     this.referrer,
   });
 
-  /// Display name (text after the last comma in `#EXTINF`).
+  /// Display name (text after the first unquoted comma in `#EXTINF`;
+  /// commas inside the name itself are preserved).
   final String name;
 
   /// Stream endpoint (HLS/RTSP/UDP/HTTP...).
@@ -50,7 +51,10 @@ class Channel {
 
   /// Identity key used by favorites/history: [tvgId] when present,
   /// otherwise the lower-cased trimmed name.
-  String get identityKey => tvgId ?? name.trim().toLowerCase();
+  String get identityKey {
+    final id = tvgId?.trim();
+    return id == null || id.isEmpty ? name.trim().toLowerCase() : id;
+  }
 
   /// HTTP headers required to fetch/play this channel, if any.
   Map<String, String> get httpHeaders => {

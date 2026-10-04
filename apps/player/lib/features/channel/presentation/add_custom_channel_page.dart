@@ -5,10 +5,14 @@ import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/features/channel/application/custom_channel_providers.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
-/// Page for adding one hand-entered channel to the "my channels" list.
+/// Page for adding one hand-entered channel, or (with [existing])
+/// editing a previously added one.
 class AddCustomChannelPage extends ConsumerStatefulWidget {
   /// Creates the page.
-  const AddCustomChannelPage({super.key});
+  const AddCustomChannelPage({super.key, this.existing});
+
+  /// When set, the page edits this channel instead of adding a new one.
+  final Channel? existing;
 
   @override
   ConsumerState<AddCustomChannelPage> createState() =>
@@ -17,17 +21,31 @@ class AddCustomChannelPage extends ConsumerStatefulWidget {
 
 class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _urlController = TextEditingController();
-  final _groupController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _urlController;
+  late final TextEditingController _groupController;
+  late final TextEditingController _logoController;
   bool _submitting = false;
   String? _error;
+
+  bool get _editing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    _nameController = TextEditingController(text: e?.name ?? '');
+    _urlController = TextEditingController(text: e?.streamUrl ?? '');
+    _groupController = TextEditingController(text: e?.groupTitle ?? '');
+    _logoController = TextEditingController(text: e?.logoUrl ?? '');
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _urlController.dispose();
     _groupController.dispose();
+    _logoController.dispose();
     super.dispose();
   }
 
@@ -35,7 +53,9 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.addChannelTitle)),
+      appBar: AppBar(
+        title: Text(_editing ? l10n.editChannelTitle : l10n.addChannelTitle),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -78,6 +98,15 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
                 border: const OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _logoController,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: l10n.logoUrlLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
             if (_error != null) ...[
               const SizedBox(height: 16),
               Text(
@@ -94,8 +123,12 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.check),
-              label: Text(_submitting ? l10n.adding : l10n.addChannelAction),
+                  : Icon(_editing ? Icons.save_outlined : Icons.check),
+              label: Text(
+                _submitting
+                    ? l10n.adding
+                    : (_editing ? l10n.saveAction : l10n.addChannelAction),
+              ),
             ),
           ],
         ),
@@ -105,23 +138,38 @@ class _AddCustomChannelPageState extends ConsumerState<AddCustomChannelPage> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    final l10n = AppLocalizations.of(context);
     final group = _groupController.text.trim();
+    final logo = _logoController.text.trim();
+    final existing = widget.existing;
     final channel = Channel(
       name: _nameController.text.trim(),
       streamUrl: _urlController.text.trim(),
       groupTitle: group.isEmpty ? null : group,
+      logoUrl: logo.isEmpty ? null : logo,
+      tvgId: existing?.tvgId,
+      tvgName: existing?.tvgName,
+      catchupSource: existing?.catchupSource,
+      catchupDays: existing?.catchupDays,
+      userAgent: existing?.userAgent,
+      referrer: existing?.referrer,
     );
     setState(() {
       _submitting = true;
       _error = null;
     });
     try {
+      if (existing != null && existing.identityKey != channel.identityKey) {
+        // Renaming changes the identity key: drop the old entry so no
+        // orphan remains in the "my channels" list.
+        await ref.read(removeCustomChannelProvider)(existing.identityKey);
+      }
       await ref.read(addCustomChannelProvider)(channel);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).channelAdded)),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_editing ? l10n.channelSaved : l10n.channelAdded),
+        ),
       );
       context.pop();
     } on Object catch (e) {

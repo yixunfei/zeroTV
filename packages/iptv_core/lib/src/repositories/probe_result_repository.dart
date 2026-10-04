@@ -13,6 +13,10 @@ abstract interface class ProbeResultRepository {
   /// Stores or replaces the result for [channelKey].
   Future<void> save(String channelKey, ProbeResult result);
 
+  /// Deletes results whose `checkedAt` is older than [cutoff], keeping
+  /// the table bounded as stale entries accumulate.
+  Future<void> purgeStale(DateTime cutoff);
+
   /// Clears all stored probe results.
   Future<void> clear();
 }

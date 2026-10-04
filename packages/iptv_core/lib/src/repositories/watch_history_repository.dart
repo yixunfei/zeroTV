@@ -12,4 +12,10 @@ abstract interface class WatchHistoryRepository {
   /// Watches the most recent entries, one per channel, ordered by
   /// latest watch time descending. [limit] caps the result size.
   Stream<List<HistoryEntry>> watchRecent({int limit = 50});
+
+  /// Removes every entry for one channel identity key.
+  Future<void> remove(String channelKey);
+
+  /// Removes all watch history.
+  Future<void> clear();
 }

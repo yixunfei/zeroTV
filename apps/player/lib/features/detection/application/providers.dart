@@ -29,7 +29,16 @@ final runAvailabilityProbeProvider = Provider<RunAvailabilityProbe>((ref) {
   );
 });
 
-/// Latest stored probe result per channel identity key.
+/// Latest stored probe result per channel identity key. Entries older
+/// than [ProbeResult.stalenessThreshold] are treated as expired and
+/// hidden, so the status dots, the available filter and failover source
+/// resolution only ever see fresh results.
 final probeResultsProvider = StreamProvider<Map<String, ProbeResult>>((ref) {
-  return ref.watch(probeResultRepositoryProvider).watchAll();
+  return ref.watch(probeResultRepositoryProvider).watchAll().map((all) {
+    final now = DateTime.now();
+    return {
+      for (final entry in all.entries)
+        if (!entry.value.isStale(now: now)) entry.key: entry.value,
+    };
+  });
 });

@@ -1,8 +1,65 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:zerotv_player/features/player/presentation/player_osd.dart';
 
+import '../../../helpers/localized_app.dart';
+
 void main() {
+  testWidgets('track menu shows selection and closes before applying track', (
+    tester,
+  ) async {
+    final applied = Completer<void>();
+    String? selected;
+    await tester.pumpWidget(
+      localizedApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              child: const Text('Tracks'),
+              onPressed: () => unawaited(
+                showTrackMenu<String>(
+                  context: context,
+                  title: 'Audio',
+                  tracks: const ['English', 'Chinese'],
+                  current: 'English',
+                  idOf: (track) => track,
+                  labelOf: (track) => track,
+                  onSelected: (track) {
+                    selected = track;
+                    return applied.future;
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Tracks'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ListTile>(find.widgetWithText(ListTile, 'English'))
+          .selected,
+      isTrue,
+    );
+    expect(
+      Theme.of(tester.element(find.text('Chinese'))).brightness,
+      Brightness.dark,
+    );
+    await tester.tap(find.text('Chinese'));
+    await tester.pumpAndSettle();
+    expect(selected, 'Chinese');
+    expect(find.text('Chinese'), findsNothing);
+    applied.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Tracks'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('PlayerAspect cycles through all presets and wraps around', () {
     expect(PlayerAspect.contain.next, PlayerAspect.cover);
     expect(PlayerAspect.fitHeight.next, PlayerAspect.contain);

@@ -100,7 +100,16 @@ install(CODE "
   file(REMOVE_RECURSE \"${INSTALL_BUNDLE_DATA_DIR}/${FLUTTER_ASSET_DIR_NAME}\")
   " COMPONENT Runtime)
 install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
-  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  CONFIGURATIONS Debug COMPONENT Runtime)
+# Flutter tests and desktop builds share build/flutter_assets. A subsequent
+# release build can leave debug snapshots there; never ship them with AOT.
+install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  CONFIGURATIONS Profile;Release COMPONENT Runtime
+  PATTERN "kernel_blob.bin" EXCLUDE
+  PATTERN "vm_snapshot_data" EXCLUDE
+  PATTERN "isolate_snapshot_data" EXCLUDE)
 
 # Install the AOT library on non-Debug builds only.
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

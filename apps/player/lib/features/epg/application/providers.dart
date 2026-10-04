@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
@@ -58,6 +60,8 @@ final epgProgrammeCountProvider = FutureProvider<int>((ref) async {
 final nowNextByEpgIdProvider = FutureProvider<Map<String, NowNext>>((
   ref,
 ) async {
+  final timer = Timer(const Duration(minutes: 1), ref.invalidateSelf);
+  ref.onDispose(timer.cancel);
   final now = DateTime.now();
   final programmes = await ref
       .watch(epgRepositoryProvider)
@@ -73,18 +77,45 @@ final nowNextByEpgIdProvider = FutureProvider<Map<String, NowNext>>((
   };
 });
 
+/// Query key for [channelGuideProvider]: XMLTV channel id + local day.
+typedef ChannelGuideQuery = ({String epgId, DateTime day});
+
+/// One full day of programmes for one XMLTV channel, backing the
+/// guide page. The query day is truncated to local midnight.
+final FutureProvider<List<EpgProgram>> Function(ChannelGuideQuery query)
+channelGuideProvider = FutureProvider.autoDispose
+    .family<List<EpgProgram>, ChannelGuideQuery>((
+      ref,
+      query,
+    ) async {
+      final d = query.day;
+      final start = DateTime(d.year, d.month, d.day);
+      return ref
+          .watch(epgRepositoryProvider)
+          .programmesFor(
+            query.epgId,
+            start,
+            start.add(const Duration(days: 1)),
+          );
+    })
+    .call;
+
 /// Now/next index for resolving programmes against app channels.
 ///
-/// Combines XMLTV channel metadata (for name fallback) with the now/next
-/// map. Empty when no EPG data is stored.
+/// Combines XMLTV channel metadata (for name fallback and coverage
+/// detection) with the now/next map. Empty when no EPG data is stored.
 final epgIndexProvider = FutureProvider<EpgIndex>((ref) async {
   final repository = ref.watch(epgRepositoryProvider);
-  final nowNext = await ref.watch(nowNextByEpgIdProvider.future);
-  if (nowNext.isEmpty) return EpgIndex.empty;
   final channels = await repository.allChannels();
+  if (channels.isEmpty) return EpgIndex.empty;
+  final nowNext = await ref.watch(nowNextByEpgIdProvider.future);
   final byName = <String, String>{};
   for (final c in channels) {
     byName.putIfAbsent(EpgIndex.normalize(c.displayName), () => c.id);
   }
-  return EpgIndex(byEpgId: nowNext, byNormalizedName: byName);
+  return EpgIndex(
+    byEpgId: nowNext,
+    byNormalizedName: byName,
+    knownEpgIds: {for (final c in channels) c.id},
+  );
 });

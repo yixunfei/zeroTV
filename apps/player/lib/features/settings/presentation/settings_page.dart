@@ -32,11 +32,36 @@ class SettingsPage extends ConsumerWidget {
             onTap: () => context.pushNamed('epg-settings'),
           ),
           ListTile(
+            leading: const Icon(Icons.star_border),
+            title: Text(l10n.favoritesTitle),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('favorites'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.history_outlined),
+            title: Text(l10n.historyTitle),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('history'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.view_agenda_outlined),
+            title: Text(l10n.guideTitle),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('guide'),
+          ),
+          ListTile(
             leading: const Icon(Icons.fiber_manual_record_outlined),
             title: Text(l10n.recordingsTile),
             subtitle: Text(l10n.recordingsTileHint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushNamed('recordings'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.tv_off_outlined),
+            title: Text(l10n.deadChannelsTitle),
+            subtitle: Text(l10n.deadChannelsTileHint),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('dead-channels'),
           ),
           const Divider(),
           ListTile(
@@ -73,6 +98,15 @@ class SettingsPage extends ConsumerWidget {
             subtitle: Text(_localeLabel(l10n, settings.locale)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pickLocale(context, ref),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.public_outlined),
+            title: Text(l10n.overseasNetworkHint),
+            subtitle: Text(l10n.overseasNetworkHintDescription),
+            value: settings.showOverseasNetworkHint,
+            onChanged: (enabled) => ref
+                .read(appSettingsProvider.notifier)
+                .setOverseasNetworkHint(enabled: enabled),
           ),
           const Divider(),
           ListTile(
@@ -126,7 +160,9 @@ class SettingsPage extends ConsumerWidget {
       const Duration(hours: 24),
       null,
     ];
-    final picked = await showModalBottomSheet<Duration?>(
+    // Wrapped in a record so a dismissed sheet (null) is distinguishable
+    // from picking "manual only" (a record holding a null interval).
+    final picked = await showModalBottomSheet<({Duration? interval})>(
       context: context,
       builder: (context) => SafeArea(
         child: ListView(
@@ -140,13 +176,16 @@ class SettingsPage extends ConsumerWidget {
                       : _syncLabel(AppLocalizations.of(context), option),
                 ),
                 trailing: option == current ? const Icon(Icons.check) : null,
-                onTap: () => Navigator.of(context).pop(option),
+                onTap: () => Navigator.of(context).pop((interval: option)),
               ),
           ],
         ),
       ),
     );
-    await ref.read(appSettingsProvider.notifier).setSyncInterval(picked);
+    if (picked == null) return;
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setSyncInterval(picked.interval);
   }
 
   Future<void> _pickConcurrency(BuildContext context, WidgetRef ref) async {

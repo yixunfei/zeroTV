@@ -36,6 +36,13 @@ class DriftProbeResultRepository implements ProbeResultRepository {
   }
 
   @override
+  Future<void> purgeStale(DateTime cutoff) {
+    return (_db.delete(
+      _db.probeResults,
+    )..where((t) => t.checkedAt.isSmallerThanValue(cutoff))).go();
+  }
+
+  @override
   Future<void> clear() => _db.delete(_db.probeResults).go();
 
   ProbeResult _toDomain(db.ProbeResult row) {

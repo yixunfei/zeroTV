@@ -16,6 +16,14 @@ void main() {
     prober = HttpStreamProber();
     server.listen((request) {
       switch (request.uri.path) {
+        case '/live':
+          if (request.method == 'HEAD') {
+            request.response.statusCode = HttpStatus.methodNotAllowed;
+          } else {
+            request.response.add([1, 2, 3]);
+            unawaited(request.response.flush());
+            return; // Intentionally endless live response; ignores Range.
+          }
         case '/ok':
           request.response.statusCode = HttpStatus.ok;
         case '/notfound':
@@ -44,6 +52,13 @@ void main() {
       expect(r.status, ProbeStatus.ok);
       expect(r.latency, isNotNull);
       expect(r.httpStatus, HttpStatus.ok);
+    });
+
+    test('GET fallback does not drain an endless live stream', () async {
+      final result = await prober
+          .probe('$base/live')
+          .timeout(const Duration(seconds: 2));
+      expect(result.status, ProbeStatus.ok);
     });
 
     test('reports dead for 404', () async {

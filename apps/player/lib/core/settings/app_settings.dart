@@ -10,6 +10,7 @@ class AppSettings {
     this.bufferSizeBytes = 32 * 1024 * 1024,
     this.themeMode = ThemeMode.system,
     this.disclaimerAccepted = false,
+    this.showOverseasNetworkHint = true,
     this.locale,
   });
 
@@ -28,6 +29,10 @@ class AppSettings {
   /// Whether the user has acknowledged the first-run disclaimer.
   final bool disclaimerAccepted;
 
+  /// Whether to warn before opening channels that usually need an
+  /// international network route.
+  final bool showOverseasNetworkHint;
+
   /// Explicit UI locale; null follows the system locale.
   final Locale? locale;
 
@@ -39,6 +44,7 @@ class AppSettings {
     int? bufferSizeBytes,
     ThemeMode? themeMode,
     bool? disclaimerAccepted,
+    bool? showOverseasNetworkHint,
     Locale? locale,
     bool clearLocale = false,
   }) {
@@ -50,6 +56,8 @@ class AppSettings {
       bufferSizeBytes: bufferSizeBytes ?? this.bufferSizeBytes,
       themeMode: themeMode ?? this.themeMode,
       disclaimerAccepted: disclaimerAccepted ?? this.disclaimerAccepted,
+      showOverseasNetworkHint:
+          showOverseasNetworkHint ?? this.showOverseasNetworkHint,
       locale: clearLocale ? null : (locale ?? this.locale),
     );
   }
@@ -65,6 +73,7 @@ class AppSettingsStore {
   static const _bufferKey = 'settings.bufferSizeBytes';
   static const _themeKey = 'settings.themeMode';
   static const _disclaimerKey = 'settings.disclaimerAccepted';
+  static const _overseasHintKey = 'settings.showOverseasNetworkHint';
   static const _localeKey = 'settings.locale';
 
   final SharedPreferences _prefs;
@@ -80,6 +89,7 @@ class AppSettingsStore {
       bufferSizeBytes: _prefs.getInt(_bufferKey) ?? 32 * 1024 * 1024,
       themeMode: _decodeTheme(_prefs.getString(_themeKey)),
       disclaimerAccepted: _prefs.getBool(_disclaimerKey) ?? false,
+      showOverseasNetworkHint: _prefs.getBool(_overseasHintKey) ?? true,
       locale: _decodeLocale(_prefs.getString(_localeKey)),
     );
   }
@@ -90,12 +100,16 @@ class AppSettingsStore {
     if (minutes == null) {
       await _prefs.setInt(_syncKey, 0); // 0 = manual only.
     } else {
-      await _prefs.setInt(_syncKey, minutes);
+      // A non-null interval shorter than one minute would round-trip
+      // to "manual only" (decoded as 0); clamp to keep automatic sync
+      // enabled.
+      await _prefs.setInt(_syncKey, minutes < 1 ? 1 : minutes);
     }
     await _prefs.setInt(_concurrencyKey, settings.probeConcurrency);
     await _prefs.setInt(_bufferKey, settings.bufferSizeBytes);
     await _prefs.setString(_themeKey, settings.themeMode.name);
     await _prefs.setBool(_disclaimerKey, settings.disclaimerAccepted);
+    await _prefs.setBool(_overseasHintKey, settings.showOverseasNetworkHint);
     final code = settings.locale?.languageCode;
     if (code == null) {
       await _prefs.remove(_localeKey);

@@ -24,6 +24,10 @@ class Subscriptions extends Table {
   /// Last successful sync time.
   DateTimeColumn get lastSyncedAt => dateTime().nullable()();
 
+  /// Optional prefix prepended to every channel group of this
+  /// subscription, giving it its own section in the group switcher.
+  TextColumn get channelGroupPrefix => text().nullable()();
+
   /// Creation time.
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -49,6 +53,9 @@ class Channels extends Table {
 
   /// XMLTV channel id for EPG matching.
   TextColumn get tvgId => text().nullable()();
+
+  /// Source-provided display name hint (`tvg-name`).
+  TextColumn get tvgName => text().nullable()();
 
   /// Logo URL.
   TextColumn get logoUrl => text().nullable()();
@@ -165,6 +172,61 @@ class EpgProgrammes extends Table {
 
   /// Optional description.
   TextColumn get description => text().nullable()();
+}
+
+/// Channels the user marked as dead/unplayable, keyed by identity key
+/// (see [Favorites.channelKey]) so marks survive sync replacement.
+class DeadChannels extends Table {
+  /// Channel identity key.
+  TextColumn get channelKey => text()();
+
+  /// Channel display name snapshot, for the management page.
+  TextColumn get channelName => text()();
+
+  /// Stream URL snapshot, for diagnostics.
+  TextColumn get streamUrl => text()();
+
+  /// When the channel was marked dead.
+  DateTimeColumn get markedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {channelKey};
+}
+
+/// EPG-based scheduled recordings: capture a programme window on a
+/// channel. Snapshots the channel coordinates so the schedule stays
+/// meaningful after a sync replaces the channel row.
+class ScheduledRecordings extends Table {
+  /// Stable unique id (uuid).
+  TextColumn get id => text()();
+
+  /// Channel identity key (see [Favorites.channelKey]).
+  TextColumn get channelKey => text()();
+
+  /// Channel display name snapshot.
+  TextColumn get channelName => text()();
+
+  /// Stream URL snapshot, fallback when the channel disappears upstream.
+  TextColumn get streamUrl => text()();
+
+  /// Programme title snapshot.
+  TextColumn get title => text()();
+
+  /// Programme window start; capture fires at this time.
+  DateTimeColumn get startAt => dateTime()();
+
+  /// Programme window end; capture stops at this time.
+  DateTimeColumn get endAt => dateTime()();
+
+  /// ScheduledRecordingState name (pending/recording/done/failed/
+  /// cancelled).
+  TextColumn get state => text().withDefault(const Constant('pending'))();
+
+  /// When the schedule was created.
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 /// Manual recordings: raw stream bytes captured to a local file.

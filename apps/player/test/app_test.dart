@@ -6,10 +6,10 @@ import 'package:zerotv_player/app.dart';
 import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
-import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 import 'helpers/fake_channel_repository.dart';
+import 'helpers/fake_dead_channel_repository.dart';
 import 'helpers/fake_favorites_repository.dart';
 import 'helpers/fake_probe_result_repository.dart';
 import 'helpers/fake_subscription_repository.dart';
@@ -47,7 +47,10 @@ void main() {
           subscriptionRepositoryProvider.overrideWithValue(
             FakeSubscriptionRepository(),
           ),
-          bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
+          deadChannelRepositoryProvider.overrideWithValue(
+            FakeDeadChannelRepository(),
+          ),
+          bootstrapProvider.overrideWith((ref) async {}),
         ],
         child: const ZeroTvApp(),
       ),
@@ -74,7 +77,8 @@ void main() {
     await tester.tap(find.byTooltip('添加'));
     await tester.pumpAndSettle();
 
-    expect(find.text('添加订阅'), findsOneWidget);
+    // The empty state also offers "添加订阅", hence at least one match.
+    expect(find.text('添加订阅'), findsWidgets);
     expect(find.text('添加单频道'), findsOneWidget);
   });
 

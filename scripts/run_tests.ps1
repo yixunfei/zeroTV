@@ -34,7 +34,7 @@ try {
   if (-not $Fast) {
     Invoke-Step '格式检查 (dart format --set-exit-if-changed)' {
       Push-Location $Script:RepoRoot
-      try { dart format --set-exit-if-changed . } finally { Pop-Location }
+      try { dart format --output=none --set-exit-if-changed . } finally { Pop-Location }
     }
     Invoke-Step '静态分析 (flutter analyze)' {
       Push-Location $Script:RepoRoot

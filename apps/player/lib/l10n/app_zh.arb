@@ -223,6 +223,8 @@
   "playbackSpeed": "播放速度",
   "stopRecording": "停止录制",
   "startRecording": "开始录制",
+  "recordUnsupported": "当前流为 HLS/回看/本地文件，暂不支持录制",
+  "deleteFailed": "删除失败：{reason}",
   "aspectContain": "适应",
   "aspectCover": "裁剪填满",
   "aspectFill": "拉伸",
@@ -243,7 +245,7 @@
   "theme": "主题",
   "language": "语言",
   "aboutTile": "关于 zeroTV",
-  "aboutTagline": "开源免费 · 本地优先 · GPL-3.0",
+  "aboutTagline": "开源免费 · 本地优先 · MIT",
   "manualOnly": "仅手动",
   "everyHours": "每 {hours} 小时",
   "@everyHours": {
@@ -267,7 +269,104 @@
   "disclaimerHeading": "免责声明",
   "disclaimerBody": "zeroTV 是开源免费的本地播放与订阅管理工具，不存储、不分发任何流媒体内容，也没有账号或遥测。频道源由你自行添加；内容的可用性与合法性由源提供方和使用者负责。内置默认源只是一条指向公开播放列表的地址，可以随时停用或删除。",
   "licenseHeading": "许可证",
-  "licenseBody": "应用代码以 GPL-3.0 发布。播放内核 media_kit / libmpv 为 LGPL，以动态链接方式使用。",
+  "licenseBody": "应用代码以 MIT 协议发布。播放内核 media_kit / libmpv 为 LGPL，以动态链接方式使用。",
   "disclaimerDialogTitle": "使用须知",
-  "disclaimerAccept": "我已了解"
+  "disclaimerAccept": "我已了解",
+  "selectSource": "选择信源",
+  "sourceNumber": "源 {index}",
+  "@sourceNumber": {
+    "placeholders": { "index": { "type": "int" } }
+  },
+  "lockScreen": "锁屏",
+  "unlockScreen": "解锁",
+  "enterLandscape": "横屏",
+  "exitLandscape": "退出横屏",
+  "catchup": "回看",
+  "catchupTitle": "回看节目单",
+  "backToLive": "回到直播",
+  "noCatchupProgrammes": "暂无可回看的节目",
+  "deadChannelsTitle": "失效频道",
+  "deadChannelsTileHint": "管理标记为失效的频道",
+  "emptyDeadTitle": "没有失效频道",
+  "emptyDeadHint": "长按频道可将其标记为失效",
+  "markDead": "标记为失效",
+  "markDeadHint": "从列表中隐藏，可在「设置 · 失效频道」中恢复",
+  "markedDead": "已将「{name}」标记为失效",
+  "@markedDead": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "revive": "恢复",
+  "cleanOrphanedDead": "清理已消失频道的标记",
+  "orphanDeadCleaned": "已清理失效标记",
+  "channelsNotLoadedYet": "频道列表尚未加载完成，请稍后再试",
+  "historyTitle": "观看历史",
+  "clearHistory": "清空历史",
+  "clearHistoryBody": "确定清空全部观看历史？",
+  "historyCleared": "已清空观看历史",
+  "historyChannelGone": "频道已不在当前订阅中",
+  "favoritesTitle": "我的收藏",
+  "guideTitle": "节目单",
+  "guideEmpty": "当天没有节目数据",
+  "guideNoMatch": "该频道未匹配到节目单",
+  "guideNoEpg": "尚未配置 EPG 源，请在设置中配置",
+  "guidePickChannel": "选择频道",
+  "openGuide": "查看节目单",
+  "today": "今天",
+  "menuMore": "更多",
+  "refreshSubscriptions": "刷新订阅",
+  "refreshDone": "刷新完成",
+  "probeScanDoneMsg": "检测完成：{available}/{total} 个频道可用",
+  "@probeScanDoneMsg": {
+    "placeholders": {
+      "available": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "cancelScan": "取消检测",
+  "editChannel": "编辑频道",
+  "editChannelTitle": "编辑频道",
+  "channelSaved": "已保存频道",
+  "saveAction": "保存",
+  "logoUrlLabel": "台标 URL（可选）",
+  "switchingSource": "正在切换到源 {index}/{total}…",
+  "@switchingSource": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "overseasNetworkHint": "海外网络提示",
+  "overseasNetworkHintDescription": "播放可能需要国际网络或代理",
+  "overseasNetworkTitle": "该频道可能需要海外网络",
+  "overseasNetworkBody": "当前频道的地址位于境外，播放质量取决于当前网络环境。",
+  "overseasNetworkDontShow": "不再提示",
+  "overseasNetworkContinue": "继续播放",
+  "overseasNetworkLater": "稍后再说",
+  "recordingsTabFiles": "文件",
+  "recordingsTabScheduled": "预约",
+  "scheduleRecording": "预约录制",
+  "scheduledRecordingAdded": "已预约《{title}》",
+  "@scheduledRecordingAdded": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "scheduledRecordingExists": "该节目已在预约列表中",
+  "noScheduledRecordings": "还没有预约录制",
+  "noScheduledRecordingsHint": "在节目单中为未来的节目预约",
+  "cancelSchedule": "取消预约",
+  "cancelScheduleBody": "取消《{title}》的预约录制？进行中的录制将停止。",
+  "@cancelScheduleBody": {
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "scheduleStatePending": "待录制",
+  "scheduleStateRecording": "录制中",
+  "scheduleStateDone": "已完成",
+  "scheduleStateFailed": "失败",
+  "scheduleStateCancelled": "已取消",
+  "scheduledMeta": "{channel} · {time}",
+  "@scheduledMeta": {
+    "placeholders": {
+      "channel": { "type": "String" },
+      "time": { "type": "String" }
+    }
+  }
 }

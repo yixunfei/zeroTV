@@ -1,7 +1,7 @@
 name: zerotv_player
 description: zeroTV - open-source cross-platform IPTV player.
 publish_to: none
-version: 0.1.0
+version: 1.0.0
 
 environment:
   sdk: ^3.12.0
@@ -16,12 +16,14 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.4.3
+  gbk_codec: ^0.4.0
   go_router: ^18.0.1
   iptv_core:
     path: ../../packages/iptv_core
   m3u_parser:
     path: ../../packages/m3u_parser
   media_kit: ^1.2.6
+  media_kit_libs_video: ^1.0.7
   media_kit_video: ^2.0.1
   path: ^1.9.1
   path_provider: ^2.1.6

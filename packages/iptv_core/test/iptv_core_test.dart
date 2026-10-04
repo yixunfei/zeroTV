@@ -2,6 +2,25 @@ import 'package:iptv_core/iptv_core.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('unsupported protocols remain eligible for the available view', () {
+    final result = ProbeResult(
+      url: 'udp://239.0.0.1:1234',
+      status: ProbeStatus.unsupported,
+      checkedAt: DateTime(2026, 9, 27),
+    );
+    expect(result.isAvailable, isTrue);
+  });
+  test('blank tvg ids fall back to normalized names', () {
+    expect(
+      const Channel(
+        name: ' News ',
+        streamUrl: 'http://a',
+        tvgId: '  ',
+      ).identityKey,
+      'news',
+    );
+  });
+
   group('Subscription', () {
     test('defaults to 6h refresh interval and enabled', () {
       const sub = Subscription(
@@ -95,6 +114,28 @@ void main() {
       );
       expect(r.status, ProbeStatus.ok);
       expect(r.latency, const Duration(milliseconds: 120));
+    });
+
+    test('isStale is false within the staleness threshold', () {
+      final checkedAt = DateTime(2026, 10, 4, 8);
+      final r = ProbeResult(
+        url: 'http://x',
+        status: ProbeStatus.ok,
+        checkedAt: checkedAt,
+      );
+      final now = checkedAt.add(const Duration(hours: 23, minutes: 59));
+      expect(r.isStale(now: now), isFalse);
+    });
+
+    test('isStale is true once the threshold is reached', () {
+      final checkedAt = DateTime(2026, 10, 4, 8);
+      final r = ProbeResult(
+        url: 'http://x',
+        status: ProbeStatus.ok,
+        checkedAt: checkedAt,
+      );
+      final now = checkedAt.add(ProbeResult.stalenessThreshold);
+      expect(r.isStale(now: now), isTrue);
     });
   });
 

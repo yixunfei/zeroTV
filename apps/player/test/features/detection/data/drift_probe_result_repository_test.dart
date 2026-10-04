@@ -57,6 +57,40 @@ void main() {
     expect(all['cctv1']!.error, 'no response');
   });
 
+  test('purgeStale removes only results older than the cutoff', () async {
+    final cutoff = DateTime(2026, 10, 4, 8);
+    await results.save(
+      'old',
+      ProbeResult(
+        url: 'http://a/1',
+        status: ProbeStatus.ok,
+        checkedAt: cutoff.subtract(const Duration(minutes: 1)),
+      ),
+    );
+    await results.save(
+      'edge',
+      ProbeResult(
+        url: 'http://a/2',
+        status: ProbeStatus.ok,
+        checkedAt: cutoff,
+      ),
+    );
+    await results.save(
+      'fresh',
+      ProbeResult(
+        url: 'http://a/3',
+        status: ProbeStatus.dead,
+        checkedAt: cutoff.add(const Duration(minutes: 1)),
+      ),
+    );
+
+    await results.purgeStale(cutoff);
+
+    final all = await results.watchAll().first;
+    expect(all.keys, containsAll(<String>['edge', 'fresh']));
+    expect(all.keys, isNot(contains('old')));
+  });
+
   test('clear removes every stored result', () async {
     await results.save(
       'cctv1',

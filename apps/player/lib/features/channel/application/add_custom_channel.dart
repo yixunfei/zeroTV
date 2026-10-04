@@ -1,8 +1,12 @@
 import 'package:iptv_core/iptv_core.dart';
-import 'package:uuid/uuid.dart';
 
 /// Name of the implicit subscription that owns user-added channels.
 const manualSubscriptionName = '我的频道';
+
+/// Stable id of the implicit manual subscription. A fixed id makes lazy
+/// creation idempotent: two concurrent adds upsert the same row instead
+/// of creating two manual subscriptions.
+const manualSubscriptionId = 'manual';
 
 /// Use case: append or replace one user-entered channel inside the
 /// implicit "manual" subscription. The subscription is created lazily
@@ -29,8 +33,8 @@ class AddCustomChannel {
     for (final s in all) {
       if (s.kind == SubscriptionKind.manual) return s;
     }
-    final created = Subscription(
-      id: const Uuid().v4(),
+    const created = Subscription(
+      id: manualSubscriptionId,
       name: manualSubscriptionName,
       kind: SubscriptionKind.manual,
       enabled: false,

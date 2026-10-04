@@ -23,7 +23,6 @@ import 'package:zerotv_player/features/channel/presentation/channel_list_page.da
 import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/epg/application/epg_index.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
-import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
 import '../../test/helpers/fake_channel_repository.dart';
@@ -69,7 +68,7 @@ void main() {
             FakeSubscriptionRepository(const []),
           ),
           epgIndexProvider.overrideWith((ref) async => EpgIndex.empty),
-          bootstrapProvider.overrideWith((ref) async => <SyncFailure>[]),
+          bootstrapProvider.overrideWith((ref) async {}),
         ],
         child: localizedApp(home: const ChannelListPage()),
       ),

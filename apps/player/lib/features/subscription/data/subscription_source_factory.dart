@@ -43,8 +43,9 @@ class DefaultSubscriptionSourceFactory implements SubscriptionSourceFactory {
   }
 
   List<Uri> _candidatesFor(String? uri) {
-    if (DefaultSubscription.isDefaultUri(uri)) {
-      return [for (final u in DefaultSubscription.candidates) Uri.parse(u)];
+    final builtin = DefaultSubscription.sourceFor(uri);
+    if (builtin != null) {
+      return [for (final u in builtin.candidates) Uri.parse(u)];
     }
     if (uri == null) {
       throw ArgumentError('remoteUrl subscription requires a uri');

@@ -3,11 +3,16 @@ import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
 import 'package:zerotv_player/features/channel/application/channel_filter.dart';
 import 'package:zerotv_player/features/channel/application/resolve_channel_sources.dart';
+import 'package:zerotv_player/features/channel/application/toggle_dead.dart';
 import 'package:zerotv_player/features/channel/application/toggle_favorite.dart';
 import 'package:zerotv_player/features/channel/data/drift_channel_repository.dart';
+import 'package:zerotv_player/features/channel/data/drift_dead_channel_repository.dart';
 import 'package:zerotv_player/features/channel/data/drift_favorites_repository.dart';
 import 'package:zerotv_player/features/channel/data/drift_watch_history_repository.dart';
+import 'package:zerotv_player/features/detection/application/probe_scan_controller.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
+import 'package:zerotv_player/features/epg/application/epg_index.dart';
+import 'package:zerotv_player/features/epg/application/providers.dart';
 
 /// Provides the [ChannelRepository].
 final channelRepositoryProvider = Provider<ChannelRepository>((ref) {
@@ -29,14 +34,46 @@ final watchHistoryRepositoryProvider = Provider<WatchHistoryRepository>((ref) {
   return DriftWatchHistoryRepository(ref.watch(appDatabaseProvider));
 });
 
+/// Provides the [DeadChannelRepository].
+final deadChannelRepositoryProvider = Provider<DeadChannelRepository>((ref) {
+  return DriftDeadChannelRepository(ref.watch(appDatabaseProvider));
+});
+
+/// Identity keys of channels the user marked as dead.
+final deadKeysProvider = StreamProvider<Set<String>>((ref) {
+  return ref.watch(deadChannelRepositoryProvider).watchKeys();
+});
+
+/// All dead-marked channels, latest first.
+final deadChannelsProvider = StreamProvider<List<DeadChannel>>((ref) {
+  return ref.watch(deadChannelRepositoryProvider).watchAll();
+});
+
 /// Provides the [ToggleFavorite] use case.
 final toggleFavoriteProvider = Provider<ToggleFavorite>((ref) {
   return ToggleFavorite(favorites: ref.watch(favoritesRepositoryProvider));
 });
 
+/// Provides the [ToggleDead] use case.
+final toggleDeadProvider = Provider<ToggleDead>((ref) {
+  return ToggleDead(dead: ref.watch(deadChannelRepositoryProvider));
+});
+
 /// All channels across subscriptions, unfiltered.
 final allChannelsProvider = StreamProvider<List<Channel>>((ref) {
   return ref.watch(channelRepositoryProvider).watchAll();
+});
+
+/// All channels minus the ones the user marked as dead.
+final aliveChannelsProvider = Provider<AsyncValue<List<Channel>>>((ref) {
+  return _combine(
+    ref.watch(allChannelsProvider),
+    ref.watch(deadKeysProvider),
+    (channels, deadKeys) => [
+      for (final c in channels)
+        if (!deadKeys.contains(c.identityKey)) c,
+    ],
+  );
 });
 
 /// All distinct group titles across subscriptions, sorted.
@@ -54,6 +91,19 @@ final favoriteKeysProvider = StreamProvider<Set<String>>((ref) {
   return ref.watch(favoritesRepositoryProvider).watchKeys();
 });
 
+/// Favorite channels (alive only), in list order. Backs the favorites
+/// management page.
+final favoriteChannelsProvider = Provider<AsyncValue<List<Channel>>>((ref) {
+  return _combine(
+    ref.watch(aliveChannelsProvider),
+    ref.watch(favoriteKeysProvider),
+    (channels, keys) => [
+      for (final c in channels)
+        if (keys.contains(c.identityKey)) c,
+    ],
+  );
+});
+
 /// Recent watch history, one entry per channel, latest first.
 final recentHistoryProvider = StreamProvider<List<HistoryEntry>>((ref) {
   return ref.watch(watchHistoryRepositoryProvider).watchRecent();
@@ -65,10 +115,42 @@ final channelFilterProvider =
       ChannelFilterNotifier.new,
     );
 
+/// Stored probe results merged with the in-flight scan snapshot. The scan
+/// snapshot makes the available tab react as soon as one channel finishes,
+/// without waiting for the database stream notification to round-trip.
+final effectiveProbeResultsProvider =
+    Provider<AsyncValue<Map<String, ProbeResult>>>((ref) {
+      final stored = ref.watch(probeResultsProvider);
+      final scan = ref.watch(probeScanProvider);
+
+      final live = switch (scan) {
+        ProbeScanRunning(:final progress) => progress.results,
+        ProbeScanDone(:final results) => results,
+        _ => const <String, ProbeResult>{},
+      };
+      if (live.isNotEmpty) {
+        final merged = <String, ProbeResult>{};
+        final storedResults = stored.value;
+        if (storedResults != null) {
+          merged.addAll(storedResults);
+        }
+        for (final entry in live.entries) {
+          final saved = merged[entry.key];
+          if (saved == null ||
+              !saved.checkedAt.isAfter(entry.value.checkedAt)) {
+            merged[entry.key] = entry.value;
+          }
+        }
+        return AsyncData(merged);
+      }
+
+      return stored;
+    });
+
 /// Holds the selected channel filter.
 class ChannelFilterNotifier extends Notifier<ChannelFilter> {
   @override
-  ChannelFilter build() => const FilterAll();
+  ChannelFilter build() => const FilterAvailable();
 
   /// The current filter.
   ChannelFilter get current => state;
@@ -78,8 +160,11 @@ class ChannelFilterNotifier extends Notifier<ChannelFilter> {
 }
 
 /// Channels shown in the list, honoring [channelFilterProvider].
+///
+/// Dead-marked channels are hidden from every view except the dedicated
+/// dead-channel management page.
 final filteredChannelsProvider = Provider<AsyncValue<List<Channel>>>((ref) {
-  final channels = ref.watch(allChannelsProvider);
+  final channels = ref.watch(aliveChannelsProvider);
   return switch (ref.watch(channelFilterProvider)) {
     FilterAll() => channels,
     FilterGroup(:final group) => channels.whenData(
@@ -101,22 +186,38 @@ final filteredChannelsProvider = Provider<AsyncValue<List<Channel>>>((ref) {
       ref.watch(recentHistoryProvider),
       _recentOrdered,
     ),
-    FilterSearch(:final query) => channels.whenData(
-      (cs) => [
-        for (final c in cs)
-          if (c.name.toLowerCase().contains(query.toLowerCase())) c,
-      ],
+    FilterSearch(:final query) => _combine(
+      channels,
+      ref.watch(epgIndexProvider),
+      (cs, index) => _searchByNameOrProgram(cs, index, query),
     ),
     FilterAvailable() => _combine(
       channels,
-      ref.watch(probeResultsProvider),
+      ref.watch(effectiveProbeResultsProvider),
       (cs, results) => [
         for (final c in cs)
-          if (results[c.identityKey]?.status == ProbeStatus.ok) c,
+          if (results[c.identityKey]?.isAvailable ?? false) c,
       ],
     ),
   };
 });
+
+/// Search matches channel name, or the title of the programme currently
+/// airing on the channel (when EPG data is available).
+List<Channel> _searchByNameOrProgram(
+  List<Channel> channels,
+  EpgIndex index,
+  String query,
+) {
+  final needle = query.toLowerCase();
+  return [
+    for (final c in channels)
+      if (c.name.toLowerCase().contains(needle) ||
+          (index.forChannel(c)?.now?.title.toLowerCase().contains(needle) ??
+              false))
+        c,
+  ];
+}
 
 /// Orders channels by recency of watching; channels whose source
 /// disappeared upstream are skipped.
@@ -154,12 +255,12 @@ AsyncValue<R> _combine<A, B, R>(
 /// or null when there is no usable history entry. Used by the
 /// "resume watching" banner on the channel list.
 final lastWatchedChannelProvider = Provider<Channel?>((ref) {
-  final channels = ref.watch(allChannelsProvider).value;
+  final channels = ref.watch(aliveChannelsProvider).value;
   final history = ref.watch(recentHistoryProvider).value;
   if (channels == null || history == null || history.isEmpty) return null;
-  final latest = history.first;
-  for (final c in channels) {
-    if (c.identityKey == latest.channelKey) return c;
+  final recent = _recentOrdered(channels, history);
+  if (recent.isNotEmpty) {
+    return recent.first;
   }
   return null;
 });

@@ -66,6 +66,7 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
       refreshInterval: Duration(seconds: row.refreshIntervalSeconds),
       enabled: row.enabled,
       lastSyncedAt: row.lastSyncedAt,
+      channelGroupPrefix: row.channelGroupPrefix,
     );
   }
 
@@ -78,6 +79,7 @@ class DriftSubscriptionRepository implements SubscriptionRepository {
       refreshIntervalSeconds: Value(s.refreshInterval.inSeconds),
       enabled: Value(s.enabled),
       lastSyncedAt: Value(s.lastSyncedAt),
+      channelGroupPrefix: Value(s.channelGroupPrefix),
     );
   }
 }

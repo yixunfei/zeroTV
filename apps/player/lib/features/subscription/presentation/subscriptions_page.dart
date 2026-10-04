@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
+import 'package:zerotv_player/core/widgets/error_view.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
@@ -36,8 +37,9 @@ class SubscriptionsPage extends ConsumerWidget {
           itemBuilder: (context, i) =>
               _SubscriptionTile(subscription: value[i]),
         ),
-        AsyncError(:final error) => Center(
-          child: Text(l10n.loadFailed('$error')),
+        AsyncError(:final error) => ErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(subscriptionsProvider),
         ),
         _ => const Center(child: CircularProgressIndicator()),
       },
@@ -181,15 +183,20 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
   }
 
   Future<void> _rename() async {
+    // Resolve dependencies before awaiting the dialog: the tile can be
+    // removed from the tree (list update, page pop) while it is open.
+    final manager = ref.read(manageSubscriptionProvider);
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => _RenameDialog(initialName: _sub.name),
     );
     if (newName == null || newName == _sub.name) return;
-    await ref.read(manageSubscriptionProvider).rename(_sub.id, newName);
+    await manager.rename(_sub.id, newName);
   }
 
   Future<void> _delete() async {
+    // Resolve dependencies before awaiting the dialog (see _rename).
+    final manager = ref.read(manageSubscriptionProvider);
     final counts = ref.read(channelCountsProvider).value ?? const {};
     final count = counts[_sub.id] ?? 0;
     final confirmed = await showDialog<bool>(
@@ -213,7 +220,7 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
       },
     );
     if (confirmed ?? false) {
-      await ref.read(manageSubscriptionProvider).remove(_sub.id);
+      await manager.remove(_sub.id);
     }
   }
 

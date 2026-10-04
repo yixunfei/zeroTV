@@ -38,6 +38,19 @@ void main() {
     expect(recent.last.channelKey, 'b');
   });
 
+  test('record prunes older rows of the same channel', () async {
+    await repo.record(entry('a', DateTime(2026, 9, 22, 8)));
+    await repo.record(entry('b', DateTime(2026, 9, 22, 9)));
+    await repo.record(entry('a', DateTime(2026, 9, 22, 10)));
+
+    final rows = await database.select(database.watchHistory).get();
+    expect(rows, hasLength(2));
+    expect(
+      rows.singleWhere((r) => r.channelKey == 'a').watchedAt,
+      DateTime(2026, 9, 22, 10),
+    );
+  });
+
   test('watchRecent respects the limit', () async {
     for (var i = 0; i < 5; i++) {
       await repo.record(entry('ch$i', DateTime(2026, 9, 22, 8 + i)));
@@ -46,5 +59,26 @@ void main() {
     expect(recent, hasLength(2));
     expect(recent.first.channelKey, 'ch4');
     expect(recent.last.channelKey, 'ch3');
+  });
+
+  test('remove deletes every entry of one channel only', () async {
+    await repo.record(entry('a', DateTime(2026, 9, 22, 8)));
+    await repo.record(entry('b', DateTime(2026, 9, 22, 9)));
+
+    await repo.remove('a');
+
+    final recent = await repo.watchRecent().first;
+    expect(recent, hasLength(1));
+    expect(recent.single.channelKey, 'b');
+  });
+
+  test('clear empties the whole history', () async {
+    await repo.record(entry('a', DateTime(2026, 9, 22, 8)));
+    await repo.record(entry('b', DateTime(2026, 9, 22, 9)));
+
+    await repo.clear();
+
+    expect(await repo.watchRecent().first, isEmpty);
+    expect(await database.select(database.watchHistory).get(), isEmpty);
   });
 }

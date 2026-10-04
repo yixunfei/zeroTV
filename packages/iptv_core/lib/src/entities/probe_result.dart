@@ -34,7 +34,8 @@ class ProbeResult {
   /// When the probe finished.
   final DateTime checkedAt;
 
-  /// Round-trip latency when [status] is [ProbeStatus.ok].
+  /// Measured round-trip latency, when a response or timeout was
+  /// observed. Null for early failures (e.g. unsupported scheme).
   final Duration? latency;
 
   /// HTTP status code when the endpoint answered over HTTP.
@@ -42,4 +43,25 @@ class ProbeResult {
 
   /// Diagnostic message for failures.
   final String? error;
+
+  /// Whether the endpoint should be included in the user's available view.
+  ///
+  /// Non-HTTP streams cannot be verified by the HTTP probe, but media_kit
+  /// can still play them. Treating them as available keeps UDP/RTSP channels
+  /// from disappearing from the default view merely because the probe has no
+  /// HTTP strategy for them.
+  bool get isAvailable =>
+      status == ProbeStatus.ok || status == ProbeStatus.unsupported;
+
+  /// How long a probe result stays trustworthy.
+  ///
+  /// Live stream endpoints churn constantly; results older than this are
+  /// treated as expired (unknown) by the UI and failover resolution.
+  static const Duration stalenessThreshold = Duration(hours: 24);
+
+  /// Whether this result is older than [maxAge] relative to [now].
+  bool isStale({DateTime? now, Duration maxAge = stalenessThreshold}) {
+    final reference = now ?? DateTime.now();
+    return reference.difference(checkedAt) >= maxAge;
+  }
 }

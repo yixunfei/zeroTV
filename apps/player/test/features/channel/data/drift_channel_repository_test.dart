@@ -14,6 +14,7 @@ void main() {
       name: 'CCTV-1',
       streamUrl: 'http://a/1',
       tvgId: 'cctv1',
+      tvgName: 'CCTV-1 源名称',
       groupTitle: '央视',
     ),
     Channel(name: 'CCTV-2', streamUrl: 'http://a/2', groupTitle: '央视'),
@@ -45,6 +46,7 @@ void main() {
       ['CCTV-1', 'CCTV-2', '湖南卫视', '散装台'],
     );
     expect(all.first.tvgId, 'cctv1');
+    expect(all.first.tvgName, 'CCTV-1 源名称');
     expect(all.last.groupTitle, isNull);
   });
 

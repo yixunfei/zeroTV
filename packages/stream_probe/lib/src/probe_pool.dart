@@ -21,27 +21,31 @@ class ProbePool {
     Duration timeout = const Duration(seconds: 5),
   }) {
     var index = 0;
-    final controller = StreamController<ProbeResult>();
+    var cancelled = false;
+    late final StreamController<ProbeResult> controller;
 
     Future<void> worker() async {
-      while (index < urls.length) {
+      while (!cancelled && index < urls.length) {
         // Single-threaded event loop: read+increment is atomic here.
         final url = urls[index++];
-        final result = await prober.probe(url, timeout: timeout);
-        if (controller.isClosed) return;
-        controller.add(result);
+        try {
+          final result = await prober.probe(url, timeout: timeout);
+          if (cancelled) return;
+          controller.add(result);
+        } on Object catch (error, stack) {
+          if (!cancelled) controller.addError(error, stack);
+        }
       }
     }
 
     final workerCount = concurrency < urls.length ? concurrency : urls.length;
-    if (workerCount == 0) {
-      unawaited(controller.close());
-      return controller.stream;
-    }
-    unawaited(
-      Future.wait([
-        for (var i = 0; i < workerCount; i++) worker(),
-      ]).whenComplete(controller.close),
+    controller = StreamController<ProbeResult>(
+      onListen: () => unawaited(
+        Future.wait([
+          for (var i = 0; i < workerCount; i++) worker(),
+        ]).then((_) => controller.close()),
+      ),
+      onCancel: () => cancelled = true,
     );
     return controller.stream;
   }

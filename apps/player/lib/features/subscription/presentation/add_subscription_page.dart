@@ -168,7 +168,10 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
           ),
         ];
       case SubscriptionKind.manual:
-        throw UnsupportedError(l10n.useAddChannel);
+        // Unreachable today (manual subscriptions are not offered here),
+        // but a build method must never throw: show the hint instead of
+        // crashing the page if a future caller reaches this branch.
+        return [Text(l10n.useAddChannel)];
     }
   }
 

@@ -27,11 +27,11 @@ jobs:
       - name: Code generation (drift + l10n)
         working-directory: apps/player
         run: |
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           flutter gen-l10n
 
       - name: Verify formatting
-        run: dart format --set-exit-if-changed .
+        run: dart format --output=none --set-exit-if-changed .
 
       - name: Static analysis
         run: flutter analyze

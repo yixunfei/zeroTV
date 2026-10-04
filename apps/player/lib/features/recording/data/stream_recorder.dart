@@ -1,93 +1,125 @@
 import 'dart:async';
 import 'dart:io';
 
-/// A handle to an in-progress recording.
-///
-/// [done] completes when the stream ends or [stop] is called. [bytesWritten]
-/// reflects the number of payload bytes written so far.
+/// A capture whose completion includes flushing and closing its output file.
 class RecordingHandle {
-  RecordingHandle._({
-    required IOSink sink,
-    required Stream<List<int>> stream,
-  }) : _sink = sink {
+  RecordingHandle._({required IOSink sink, required Stream<List<int>> stream})
+    : _sink = sink {
+    unawaited(_sink.done.then<void>((_) {}, onError: _onError));
     _subscription = stream.listen(
       (chunk) {
         bytesWritten += chunk.length;
         _sink.add(chunk);
       },
-      onDone: () async {
-        await _sink.flush();
-        await _sink.close();
-        _stopped = true;
-        if (!_done.isCompleted) _done.complete();
-      },
-      onError: (Object e, StackTrace s) async {
-        await _sink.close();
-        _stopped = true;
-        if (!_done.isCompleted) _done.completeError(e, s);
-      },
+      onDone: () => unawaited(_finish()),
+      onError: _onError,
       cancelOnError: true,
     );
+    _done.future.ignore();
   }
 
   final IOSink _sink;
   final _done = Completer<void>();
   late final StreamSubscription<List<int>> _subscription;
+  Future<void>? _finishing;
+  Object? _error;
+  StackTrace? _stack;
 
-  /// Completes when the recording has fully stopped.
+  /// Completes when capture has ended; reports network or disk failures.
   Future<void> get done => _done.future;
 
-  /// Number of payload bytes written so far.
+  /// Payload bytes received so far.
   int bytesWritten = 0;
 
-  bool _stopped = false;
+  /// Whether capture is still accepting bytes.
+  bool get isActive => _finishing == null;
 
-  /// Whether the recording is still running.
-  bool get isActive => !_stopped;
+  void _onError(Object error, StackTrace stack) {
+    _error ??= error;
+    _stack ??= stack;
+    unawaited(_finish());
+  }
 
-  /// Stops the recording and closes the file.
+  Future<void> _finish() => _finishing ??= _close();
+
+  Future<void> _close() async {
+    try {
+      await _subscription.cancel();
+      await _sink.flush();
+    } on Object catch (error, stack) {
+      _error ??= error;
+      _stack ??= stack;
+    } finally {
+      try {
+        await _sink.close();
+      } on Object catch (error, stack) {
+        _error ??= error;
+        _stack ??= stack;
+      }
+      if (_error == null) {
+        _done.complete();
+      } else {
+        _done.completeError(_error!, _stack);
+      }
+    }
+  }
+
+  /// Idempotently stops capture and awaits all output cleanup.
   Future<void> stop() async {
-    if (_stopped) return;
-    _stopped = true;
-    await _subscription.cancel();
-    await _sink.flush();
-    await _sink.close();
-    if (!_done.isCompleted) _done.complete();
+    await _finish();
+    await done;
   }
 }
 
-/// Captures a live HTTP(S) stream to a local file, byte-for-byte (no
-/// transcoding, no re-muxing).
-///
-/// This is a best-effort recorder: it writes the raw response body as it
-/// arrives. Non-HTTP schemes (RTSP/UDP) are not supported.
+/// Records direct HTTP media streams without transcoding or remuxing.
+/// Playlist/HTML responses are rejected rather than saved as fake video.
 class StreamRecorder {
-  /// Creates a recorder. [client] is injectable for testing.
-  StreamRecorder({HttpClient? client}) : _client = client ?? HttpClient();
+  /// Creates a recorder with an optional HTTP client and connection deadline.
+  StreamRecorder({
+    HttpClient? client,
+    this.timeout = const Duration(seconds: 20),
+  }) : _client = client ?? HttpClient();
 
   final HttpClient _client;
 
-  /// Starts recording [url] into [filePath] with optional [headers].
+  /// Deadline for opening a stream (capture itself may run indefinitely).
+  final Duration timeout;
+
+  /// Starts recording a direct stream into [filePath].
   Future<RecordingHandle> start({
     required Uri url,
     required String filePath,
     Map<String, String> headers = const {},
   }) async {
     if (!(url.isScheme('HTTP') || url.isScheme('HTTPS'))) {
-      throw UnsupportedError('仅支持 http(s) 流录制：$url');
+      throw UnsupportedError('仅支持 HTTP(S) 直连媒体流录制');
     }
-    final request = await _client.getUrl(url);
-    headers.forEach(request.headers.set);
-    final response = await request.close();
-    if (response.statusCode >= 400) {
-      throw HttpException('录制请求失败：HTTP ${response.statusCode}', uri: url);
+    if (RegExp(r'\.(m3u8?|mpd)$', caseSensitive: false).hasMatch(url.path)) {
+      throw UnsupportedError('暂不支持 HLS/DASH 分片流录制');
     }
-    final file = File(filePath);
-    await file.parent.create(recursive: true);
-    final sink = file.openWrite();
-    return RecordingHandle._(sink: sink, stream: response);
+    final request = await _client.getUrl(url).timeout(timeout);
+    try {
+      headers.forEach(request.headers.set);
+      final response = await request.close().timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException('录制请求失败：HTTP ${response.statusCode}', uri: url);
+      }
+      final type = response.headers.contentType?.mimeType.toLowerCase() ?? '';
+      if (type.startsWith('text/') ||
+          type.contains('mpegurl') ||
+          type.contains('dash+xml') ||
+          type.contains('json')) {
+        throw UnsupportedError('响应不是可直接录制的媒体流：$type');
+      }
+      final file = File(filePath);
+      await file.parent.create(recursive: true);
+      return RecordingHandle._(sink: file.openWrite(), stream: response);
+    } on Object {
+      request.abort();
+      rethrow;
+    }
   }
 
-  /// Releases the underlying [HttpClient].
+  /// Releases the HTTP client and active connections.
   void close() => _client.close(force: true);
 }

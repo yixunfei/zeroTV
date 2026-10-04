@@ -13,8 +13,10 @@
     powershell -File scripts\build_android.ps1 -Mode debug        # debug APK
 
   产物：
-    APK → apps\player\build\app\outputs\flutter-apk\app-<mode>.apk
-    AAB → apps\player\build\app\outputs\bundle\release\app-release.aab
+    release APK 按 ABI 拆分（app-armeabi-v7a / app-arm64-v8a / app-x86_64），
+      侧载 64 位手机选 app-arm64-v8a-release.apk；
+    AAB → apps\player\build\app\outputs\bundle\release\app-release.aab；
+    release 混淆符号（还原崩溃堆栈用）→ apps\player\build\app\symbols。
 
 .PARAMETER Target
   apk（侧载分发）或 aab（上架商店），默认 apk。
@@ -31,35 +33,67 @@ param(
   [ValidateSet('apk', 'aab')]
   [string]$Target = 'apk',
   [ValidateSet('debug', 'release')]
-  [string]$Mode = 'release'
+  [string]$Mode = 'release',
+  [switch]$SkipPreparation
 )
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\common.ps1"
+. "$PSScriptRoot\android_environment.ps1"
 
 try {
   Assert-Dependencies -Commands @('flutter', 'dart', 'java')
   Set-LocalhostProxyBypass
-  Invoke-PubGetAll
-  Invoke-Codegen
+  Set-AndroidBuildProxy
+  if (-not $SkipPreparation) {
+    Invoke-PubGetAll
+    Invoke-Codegen
+  }
 
   Invoke-Step "构建 Android $Target ($Mode)" {
     Push-Location $Script:AppDir
     try {
-      if ($Target -eq 'apk') {
-        flutter build apk --$Mode
+      # 包体优化：
+      #  - --split-per-abi：按 ABI 拆分 APK（arm64-v8a 单包约为通用包的
+      #    1/3，native 库是 IPTV 播放器包体的主要来源）；
+      #  - --obfuscate --split-debug-info：混淆并剥离 Dart 符号，产物
+      #    崩溃堆栈需要用 build/app/symbols 下的符号文件还原。
+      #  - --tree-shake-icons 由 Flutter 在非 debug 构建默认开启。
+      if ($Mode -ne 'debug') {
+        $symbols = "build\app\symbols"
+        if ($Target -eq 'apk') {
+          flutter build apk --release --split-per-abi --obfuscate --split-debug-info=$symbols
+        } else {
+          flutter build appbundle --release --obfuscate --split-debug-info=$symbols
+        }
+      } elseif ($Target -eq 'apk') {
+        flutter build apk --debug
       } else {
-        # AAB 只有 release 形态有意义
-        flutter build appbundle --release
+        flutter build appbundle --debug
       }
     } finally { Pop-Location }
   }
 
   if ($Target -eq 'apk') {
-    $out = Join-Path $Script:AppDir "build\app\outputs\flutter-apk\app-$Mode.apk"
+    if ($Mode -ne 'debug') {
+      # split-per-abi 产物：app-armeabi-v7a/arm64-v8a/x86_64-release.apk
+      $outDir = Join-Path $Script:AppDir "build\app\outputs\flutter-apk"
+      $apks = Get-ChildItem -LiteralPath $outDir -Filter "app-*-release.apk" -ErrorAction SilentlyContinue
+      if ($apks) {
+        $apks | ForEach-Object {
+          Write-Host ("  {0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) -ForegroundColor Cyan
+        }
+      }
+      $out = Join-Path $outDir "app-arm64-v8a-release.apk"
+    } else {
+      $out = Join-Path $Script:AppDir "build\app\outputs\flutter-apk\app-debug.apk"
+    }
+  } elseif ($Mode -ne 'debug') {
+    $out = Join-Path $Script:AppDir "build\app\outputs\bundle\release\app-release.aab"
   } else {
-    $out = Join-Path $Script:AppDir 'build\app\outputs\bundle\release\app-release.aab'
+    $out = Join-Path $Script:AppDir "build\app\outputs\bundle\debug\app-debug.aab"
   }
+  if (-not (Test-Path -LiteralPath $out)) { throw "Missing artifact: $out" }
   Write-Host "`n构建完成：$out" -ForegroundColor Green
   exit 0
 } catch {

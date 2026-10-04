@@ -20,6 +20,7 @@ void main() {
     expect(settings.bufferSizeBytes, 32 * 1024 * 1024);
     expect(settings.themeMode, ThemeMode.system);
     expect(settings.disclaimerAccepted, isFalse);
+    expect(settings.showOverseasNetworkHint, isTrue);
     expect(settings.locale, isNull);
   });
 
@@ -30,6 +31,7 @@ void main() {
         probeConcurrency: 32,
         bufferSizeBytes: 64 * 1024 * 1024,
         themeMode: ThemeMode.dark,
+        showOverseasNetworkHint: false,
       ),
     );
 
@@ -38,6 +40,7 @@ void main() {
     expect(settings.probeConcurrency, 32);
     expect(settings.bufferSizeBytes, 64 * 1024 * 1024);
     expect(settings.themeMode, ThemeMode.dark);
+    expect(settings.showOverseasNetworkHint, isFalse);
   });
 
   test('null sync interval (manual only) survives a round-trip', () async {

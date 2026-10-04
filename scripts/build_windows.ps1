@@ -25,7 +25,8 @@
 #>
 param(
   [ValidateSet('debug', 'release')]
-  [string]$Mode = 'release'
+  [string]$Mode = 'release',
+  [switch]$SkipPreparation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,15 +36,25 @@ try {
   Assert-Dependencies -Commands @('flutter', 'dart')
   Set-LocalhostProxyBypass
   Initialize-WindowsPluginSymlinks
-  Invoke-PubGetAll
-  Invoke-Codegen
+  if (-not $SkipPreparation) {
+    Invoke-PubGetAll
+    Invoke-Codegen
+  }
 
   Invoke-Step "构建 Windows ($Mode)" {
     Push-Location $Script:AppDir
-    try { flutter build windows --$Mode } finally { Pop-Location }
+    try {
+      # release 混淆并剥离 Dart 符号（还原崩溃堆栈用 build\windows\symbols）。
+      if ($Mode -eq 'release') {
+        flutter build windows --release --obfuscate --split-debug-info=build/windows/symbols
+      } else {
+        flutter build windows --debug
+      }
+    } finally { Pop-Location }
   }
 
   $out = Join-Path $Script:AppDir "build\windows\x64\runner\$Mode"
+  Assert-WindowsBundle -Path $out
   Write-Host "`n构建完成：$out\zerotv_player.exe" -ForegroundColor Green
   exit 0
 } catch {

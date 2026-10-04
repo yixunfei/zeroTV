@@ -63,6 +63,14 @@ android {
 
     buildTypes {
         release {
+            // R8 code shrinking + resource shrinking to trim unused plugin
+            // classes/resources from the Android layer.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Uses the release signing config when keystore material is
             // available (key.properties locally / env vars in CI); otherwise
             // falls back to debug signing so `flutter run --release` still works.

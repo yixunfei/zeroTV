@@ -1,92 +1,43 @@
 ﻿#Requires -Version 5.1
-<#
-.SYNOPSIS
-  zeroTV Windows 一键打包脚本：构建 release 并产出可分发 zip。
-
-.DESCRIPTION
-  在 build_windows.ps1 之上多做两步：
-    1. 把 runner\Release 整个目录拷到 staging（重命名为 zerotv-<ver>-windows-x64）
-    2. Compress-Archive 打成 zip + 生成 SHA256SUMS
-  产物落在 build\dist\，命名与 GitHub Release 工作流保持一致。
-
-  用法：
-    powershell -File scripts\package_windows.ps1              # release 打包
-    powershell -File scripts\package_windows.ps1 -SkipBuild   # 已构建过，只打包
-
-.PARAMETER SkipBuild
-  跳过 flutter build windows（沿用上一次 release 构建产物）。
-
-.NOTES
-  产物路径：build\dist\zerotv-<version>-windows-x64.zip
-  版本号取自 apps\player\pubspec.yaml 的 version 字段（取 + 前的 semver）。
-#>
+<# .SYNOPSIS Builds a complete portable Windows bundle and SHA256 checksums. #>
 param(
-  [switch]$SkipBuild
+  [ValidateSet('debug', 'release')][string]$Mode = 'release',
+  [switch]$TestPackage,
+  [switch]$SkipBuild,
+  [switch]$SkipPreparation
 )
-
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\common.ps1"
-
-function Get-AppVersion {
-  <#
-  .SYNOPSIS
-    从 apps/player/pubspec.yaml 读取 version（去掉 +build 后缀）。
-  #>
-  $pubspec = Join-Path $Script:AppDir 'pubspec.yaml'
-  $line = Select-String -Path $pubspec -Pattern '^version:\s*(\S+)' |
-    Select-Object -First 1
-  if (-not $line) { throw "未在 $pubspec 找到 version 字段" }
-  $raw = $line.Matches[0].Groups[1].Value
-  return ($raw -split '\+')[0]
-}
-
 try {
-  Assert-Dependencies -Commands @('flutter', 'dart')
-  Set-LocalhostProxyBypass
-
   if (-not $SkipBuild) {
-    Invoke-PubGetAll
-    Invoke-Codegen
-    Invoke-Step '构建 Windows (release)' {
-      Push-Location $Script:AppDir
-      try { flutter build windows --release } finally { Pop-Location }
+    Invoke-Step 'Build Windows' {
+      $buildArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$PSScriptRoot\build_windows.ps1", '-Mode', $Mode)
+      if ($SkipPreparation) { $buildArgs += '-SkipPreparation' }
+      & powershell @buildArgs
     }
   }
-
-  $version = Get-AppVersion
-  $src = Join-Path $Script:AppDir 'build\windows\x64\runner\Release'
-  $exe = Join-Path $src 'zerotv_player.exe'
-  if (-not (Test-Path $exe)) {
-    throw "未找到构建产物：$exe。请先去掉 -SkipBuild 跑完整构建。"
+  $src = Join-Path $Script:AppDir "build\windows\x64\runner\$Mode"
+  Assert-WindowsBundle -Path $src
+  if ($Mode -eq 'release' -and (Test-Path -LiteralPath (Join-Path $src 'data\flutter_assets\kernel_blob.bin'))) {
+    throw 'Release contains stale debug snapshots. Rebuild without -SkipBuild.'
   }
-
-  $distRoot = Join-Path $Script:RepoRoot 'build\dist'
-  $staging = Join-Path $distRoot "zerotv-${version}-windows-x64"
-  $zipPath = Join-Path $distRoot "zerotv-${version}-windows-x64.zip"
-  $sumsPath = Join-Path $distRoot 'SHA256SUMS-windows.txt'
-
-  Write-Step "打包 $zipPath"
-  New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
-  if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
-  if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+  $version = Get-AppVersion
+  $suffix = if ($TestPackage) { '-test' } elseif ($Mode -eq 'debug') { '-debug' } else { '' }
+  $name = "zerotv-${version}${suffix}-windows-x64"
+  $dist = Join-Path $Script:RepoRoot 'build\dist'
+  New-Item -ItemType Directory -Force -Path $dist | Out-Null
+  $stageRoot = Join-Path $Script:RepoRoot ('build\package-staging\' + [Guid]::NewGuid().ToString())
+  $staging = Join-Path $stageRoot $name
   New-Item -ItemType Directory -Force -Path $staging | Out-Null
-  Copy-Item (Join-Path $src '*') $staging -Recurse
-  Compress-Archive -Path $staging -DestinationPath $zipPath -Force
-
-  Write-Step "生成 SHA256 -> $sumsPath"
-  $hash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLower()
-  $line = "{0}  {1}" -f $hash, (Split-Path $zipPath -Leaf)
-  [System.IO.File]::WriteAllText(
-    $sumsPath,
-    $line + "`n",
-    (New-Object System.Text.UTF8Encoding($false))
-  )
-
-  Write-Host "`n打包完成：" -ForegroundColor Green
-  Write-Host "  $zipPath"
-  Write-Host "  $sumsPath"
+  Copy-Item -Path (Join-Path $src '*') -Destination $staging -Recurse
+  Copy-WindowsRuntime -Destination $staging
+  Copy-Item -LiteralPath (Join-Path $Script:RepoRoot 'LICENSE') -Destination $staging
+  $zip = Join-Path $dist "$name.zip"
+  Compress-Archive -LiteralPath $staging -DestinationPath $zip -Force
+  Write-ArtifactChecksums -Files @($zip) -Path (Join-Path $dist "SHA256SUMS-windows${suffix}.txt")
+  Write-Host "Package ready: $zip" -ForegroundColor Green
   exit 0
 } catch {
-  Write-Host "`n打包失败：$($_.Exception.Message)" -ForegroundColor Red
+  Write-Host "Packaging failed: $($_.Exception.Message)" -ForegroundColor Red
   exit 1
 }

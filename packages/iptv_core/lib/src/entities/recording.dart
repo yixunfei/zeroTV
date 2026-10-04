@@ -35,6 +35,10 @@ class Recording {
   /// Whether the recording is still in progress.
   bool get isRecording => endedAt == null;
 
-  /// Wall-clock duration of the recording so far.
-  Duration durationAt(DateTime now) => (endedAt ?? now).difference(startedAt);
+  /// Wall-clock duration of the recording so far. Clamped to zero so a
+  /// system clock set back mid-recording never yields a negative value.
+  Duration durationAt(DateTime now) {
+    final duration = (endedAt ?? now).difference(startedAt);
+    return duration.isNegative ? Duration.zero : duration;
+  }
 }

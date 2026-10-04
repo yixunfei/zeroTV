@@ -112,6 +112,26 @@ void main() {
     expect(window.map((p) => p.title).toList(), ['新节目']);
   });
 
+  test('replaceFeed ignores duplicate channel ids', () async {
+    await epg.replaceFeed(
+      const EpgFeed(
+        channels: [
+          EpgChannel(id: 'cctv1', displayName: 'CCTV-1'),
+          EpgChannel(
+            id: 'cctv1',
+            displayName: 'CCTV-1 duplicate',
+            iconUrl: 'http://l/duplicate.png',
+          ),
+        ],
+        programmes: [],
+      ),
+    );
+
+    final channels = await epg.allChannels();
+    expect(channels, hasLength(1));
+    expect(channels.single.displayName, 'CCTV-1');
+  });
+
   test('clear removes all stored EPG data', () async {
     await epg.replaceFeed(feed);
     await epg.clear();

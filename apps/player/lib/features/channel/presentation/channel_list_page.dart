@@ -1,23 +1,28 @@
-import 'dart:async' show unawaited;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
+import 'package:zerotv_player/core/widgets/error_view.dart';
 import 'package:zerotv_player/features/channel/application/channel_filter.dart';
 import 'package:zerotv_player/features/channel/application/custom_channel_providers.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
+import 'package:zerotv_player/features/channel/presentation/channel_logo.dart';
 import 'package:zerotv_player/features/detection/application/probe_scan_controller.dart';
-import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/run_availability_probe.dart';
 import 'package:zerotv_player/features/epg/application/epg_guide.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
 import 'package:zerotv_player/features/settings/presentation/disclaimer_gate.dart';
+import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
+import 'package:zerotv_player/features/subscription/application/background_sync_controller.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
-/// Home page: grouped channel list, gated on first-run bootstrap
-/// (default-source seeding + initial sync).
+/// Home page: grouped channel list. Bootstrap only performs fast local
+/// seeding; the initial subscription sync runs in the background (see
+/// [backgroundSyncControllerProvider]) so cached content renders
+/// immediately and the page never blocks on the network.
 class ChannelListPage extends ConsumerStatefulWidget {
   /// Creates the page.
   const ChannelListPage({super.key});
@@ -27,28 +32,42 @@ class ChannelListPage extends ConsumerStatefulWidget {
 }
 
 class _ChannelListPageState extends ConsumerState<ChannelListPage> {
+  static const _searchDebounce = Duration(milliseconds: 300);
+
   bool _searching = false;
+  ChannelFilter? _filterBeforeSearch;
   final _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   void _enterSearch() {
+    _filterBeforeSearch = ref.read(channelFilterProvider);
     setState(() => _searching = true);
     ref.read(channelFilterProvider.notifier).current = const FilterSearch('');
   }
 
   void _exitSearch() {
+    _debounce?.cancel();
     _searchController.clear();
     setState(() => _searching = false);
-    ref.read(channelFilterProvider.notifier).current = const FilterAll();
+    ref.read(channelFilterProvider.notifier).current =
+        _filterBeforeSearch ?? const FilterAvailable();
+    _filterBeforeSearch = null;
   }
 
   void _onQueryChanged(String query) {
-    ref.read(channelFilterProvider.notifier).current = FilterSearch(query);
+    // Debounce: filtering scans every channel (plus EPG now/next) on each
+    // keystroke otherwise.
+    _debounce?.cancel();
+    _debounce = Timer(_searchDebounce, () {
+      ref.read(channelFilterProvider.notifier).current = FilterSearch(query);
+    });
   }
 
   @override
@@ -63,15 +82,26 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    ref.listen(bootstrapProvider, (_, next) {
-      final failures = next.value;
-      if (failures != null && failures.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.syncFailedKeep(failures.length))),
-        );
-      }
-    });
-    final bootstrap = ref.watch(bootstrapProvider);
+    ref
+      ..listen(backgroundSyncControllerProvider, (_, next) {
+        if (next case BackgroundSyncDone(
+          :final failures,
+        ) when failures.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.syncFailedKeep(failures.length))),
+          );
+        }
+      })
+      ..listen(probeScanProvider, (_, next) {
+        if (next case ProbeScanDone(:final available, :final total)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.probeScanDoneMsg(available, total))),
+          );
+        }
+      })
+      ..watch(bootstrapProvider);
+    // Keep bootstrap alive for local seeding, but never gate the first frame
+    // on it. The browser and its background-sync banner remain interactive.
     return Scaffold(
       appBar: AppBar(
         title: _searching
@@ -100,25 +130,66 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
             ),
             _ScanButton(
               onStart: () {
-                final channels = ref.read(allChannelsProvider).value ?? [];
-                unawaited(
-                  ref.read(probeScanProvider.notifier).start(channels),
-                );
+                unawaited(() async {
+                  List<Channel> channels;
+                  try {
+                    channels = await ref.read(allChannelsProvider.future);
+                  } on Object {
+                    channels = const [];
+                  }
+                  if (!mounted) return;
+                  await ref.read(probeScanProvider.notifier).start(channels);
+                }());
               },
+              onCancel: () => ref.read(probeScanProvider.notifier).cancel(),
             ),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               tooltip: l10n.settings,
               onPressed: () => context.goNamed('settings'),
             ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: l10n.menuMore,
+              onSelected: (route) => context.pushNamed(route),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'guide',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_note_outlined),
+                    title: Text(l10n.guideTitle),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'favorites',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.star_border),
+                    title: Text(l10n.favoritesTitle),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'history',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.history_outlined),
+                    title: Text(l10n.historyTitle),
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),
-      body: switch (bootstrap) {
-        AsyncLoading() => _BootHint(l10n.syncingSources),
-        AsyncError(:final error) => _BootError(error: error),
-        AsyncData() => const _ChannelBrowser(),
-      },
+      // Bootstrap only covers local seeding; even if it fails we still
+      // show the browser (empty state) rather than trapping the user on
+      // an error page. Sync progress/failures surface via the banner and
+      // snackbar wired to backgroundSyncControllerProvider.
+      body: const _ChannelBrowser(),
       floatingActionButton: MenuAnchor(
         builder: (context, controller, _) => FloatingActionButton(
           onPressed: () {
@@ -148,64 +219,6 @@ class _ChannelListPageState extends ConsumerState<ChannelListPage> {
   }
 }
 
-class _BootHint extends StatelessWidget {
-  const _BootHint(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(message, style: Theme.of(context).textTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-class _BootError extends ConsumerWidget {
-  const _BootError({required this.error});
-
-  final Object error;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_off_outlined, size: 48),
-          const SizedBox(height: 12),
-          Text(
-            AppLocalizations.of(context).syncFailedTitle,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              '$error',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () => ref.invalidate(bootstrapProvider),
-            icon: const Icon(Icons.refresh),
-            label: Text(AppLocalizations.of(context).retry),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ChannelBrowser extends ConsumerStatefulWidget {
   const _ChannelBrowser();
 
@@ -217,6 +230,36 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
   /// Session-scoped dismissal of the resume banner.
   bool _resumeDismissed = false;
 
+  /// Pull-to-refresh: manually re-syncs every syncable subscription
+  /// (ignoring schedule and auto-sync toggles) and reports failures.
+  Future<void> _refreshSubscriptions() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(backgroundSyncControllerProvider.notifier).run(all: true);
+      final state = ref.read(backgroundSyncControllerProvider);
+      final failures = state is BackgroundSyncDone
+          ? state.failures
+          : const <SyncFailure>[];
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            failures.isEmpty
+                ? l10n.refreshDone
+                : l10n.syncFailedKeep(failures.length),
+          ),
+        ),
+      );
+    } on Object catch (e) {
+      // Failures of individual subscriptions are reported above; this
+      // only catches an outright error (e.g. the DB read failed) so it
+      // doesn't escape the RefreshIndicator callback.
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.syncFailed('$e'))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final groups = ref.watch(allGroupsProvider).value ?? const <String>[];
@@ -224,10 +267,18 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
     final channelsAsync = ref.watch(filteredChannelsProvider);
     final lastWatched = ref.watch(lastWatchedChannelProvider);
     final scan = ref.watch(probeScanProvider);
+    final backgroundSync = ref.watch(backgroundSyncControllerProvider);
     final showResume =
-        !_resumeDismissed && filter is FilterAll && lastWatched != null;
+        !_resumeDismissed &&
+        (filter is FilterAll || filter is FilterAvailable) &&
+        lastWatched != null;
     return Column(
       children: [
+        if (backgroundSync case BackgroundSyncRunning(
+          :final completed,
+          :final total,
+        ))
+          _SyncingBanner(completed: completed, total: total),
         if (showResume)
           _ResumeBanner(
             channel: lastWatched,
@@ -242,6 +293,13 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: [
+                _FilterChip(
+                  label: AppLocalizations.of(context).filterAvailable,
+                  selected: filter is FilterAvailable,
+                  onSelected: () =>
+                      ref.read(channelFilterProvider.notifier).current =
+                          const FilterAvailable(),
+                ),
                 _FilterChip(
                   label: AppLocalizations.of(context).filterAll,
                   selected: filter is FilterAll,
@@ -263,13 +321,6 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
                       ref.read(channelFilterProvider.notifier).current =
                           const FilterRecent(),
                 ),
-                _FilterChip(
-                  label: AppLocalizations.of(context).filterAvailable,
-                  selected: filter is FilterAvailable,
-                  onSelected: () =>
-                      ref.read(channelFilterProvider.notifier).current =
-                          const FilterAvailable(),
-                ),
                 for (final g in groups)
                   _FilterChip(
                     label: g,
@@ -283,18 +334,86 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
           ),
         if (filter is! FilterSearch) const Divider(height: 1),
         Expanded(
-          child: switch (channelsAsync) {
-            AsyncData(:final value) when value.isEmpty => _EmptyHint(
-              filter: filter,
-            ),
-            AsyncData(:final value) => _ChannelList(channels: value),
-            AsyncError(:final error) => Center(
-              child: Text(AppLocalizations.of(context).loadFailed('$error')),
-            ),
-            _ => const Center(child: CircularProgressIndicator()),
-          },
+          child: RefreshIndicator(
+            onRefresh: _refreshSubscriptions,
+            child: switch (channelsAsync) {
+              AsyncData(:final value) when value.isEmpty => ListView(
+                // Keeps pull-to-refresh reachable on the empty state.
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height / 2,
+                    child: _EmptyHint(
+                      filter: filter,
+                      hasProbeResults:
+                          ref
+                              .watch(effectiveProbeResultsProvider)
+                              .value
+                              ?.isNotEmpty ??
+                          false,
+                    ),
+                  ),
+                ],
+              ),
+              AsyncData(:final value) => _ChannelList(channels: value),
+              AsyncError(:final error) => ErrorView(
+                error: error,
+                // Invalidate the underlying stream providers; the list
+                // view itself is purely derived and would just re-read
+                // the cached error.
+                onRetry: () {
+                  ref
+                    ..invalidate(allChannelsProvider)
+                    ..invalidate(deadKeysProvider);
+                },
+              ),
+              _ => const Center(child: CircularProgressIndicator()),
+            },
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// Slim non-blocking banner shown while the background subscription
+/// sync is running; the list below stays fully interactive.
+class _SyncingBanner extends StatelessWidget {
+  const _SyncingBanner({required this.completed, required this.total});
+
+  final int completed;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  total == 0
+                      ? AppLocalizations.of(context).syncingSources
+                      : '${AppLocalizations.of(context).syncingSources} '
+                            '$completed/$total',
+                ),
+              ],
+            ),
+          ),
+          LinearProgressIndicator(
+            value: total == 0 ? null : completed / total,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -352,26 +471,38 @@ class _FilterChip extends StatelessWidget {
 /// App-bar action that starts a batch availability scan and reflects
 /// its progress.
 class _ScanButton extends ConsumerWidget {
-  const _ScanButton({required this.onStart});
+  const _ScanButton({required this.onStart, required this.onCancel});
 
   final VoidCallback onStart;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scan = ref.watch(probeScanProvider);
+    final l10n = AppLocalizations.of(context);
     if (scan is ProbeScanRunning) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14),
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: l10n.cancelScan,
+            onPressed: onCancel,
+          ),
+        ],
       );
     }
     return IconButton(
       icon: const Icon(Icons.network_check_outlined),
-      tooltip: AppLocalizations.of(context).probeScan,
+      tooltip: l10n.probeScan,
       onPressed: onStart,
     );
   }
@@ -420,6 +551,7 @@ class _ChannelList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: channels.length,
       itemBuilder: (context, i) => _ChannelTile(channel: channels[i]),
     );
@@ -433,10 +565,11 @@ class _ChannelTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final logo = channel.logoUrl;
     final favorites = ref.watch(favoriteKeysProvider).value ?? const <String>{};
     final isFavorite = favorites.contains(channel.identityKey);
-    final probe = ref.watch(probeResultsProvider).value?[channel.identityKey];
+    final probe = ref
+        .watch(effectiveProbeResultsProvider)
+        .value?[channel.identityKey];
     final nowNext = ref.watch(epgIndexProvider).value?.forChannel(channel);
     final isManual =
         ref
@@ -447,30 +580,27 @@ class _ChannelTile extends ConsumerWidget {
             ) ??
         false;
     return ListTile(
-      leading: logo == null
-          ? const Icon(Icons.live_tv_outlined, size: 32)
-          : Image.network(
-              logo,
-              width: 40,
-              height: 40,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) =>
-                  const Icon(Icons.live_tv_outlined, size: 32),
-            ),
+      leading: ChannelLogo(logoUrl: channel.logoUrl),
       title: Text(channel.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 3,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(
-                channel.groupTitle ?? AppLocalizations.of(context).ungrouped,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(
+                  channel.groupTitle ?? AppLocalizations.of(context).ungrouped,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-              if (probe != null) ...[
-                const SizedBox(width: 8),
-                _ProbeStatusDot(status: probe.status),
-              ],
+              if (probe != null) _ProbeStatusBadge(result: probe),
             ],
           ),
           if (nowNext != null && (nowNext.now != null || nowNext.next != null))
@@ -500,10 +630,57 @@ class _ChannelTile extends ConsumerWidget {
         ],
       ),
       onTap: () => context.pushNamed('player', extra: channel),
+      onLongPress: () => unawaited(_showChannelActions(context, ref)),
     );
   }
 
+  Future<void> _showChannelActions(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final isManual =
+        ref
+            .read(manualChannelKeysProvider)
+            .value
+            ?.contains(channel.identityKey) ??
+        false;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            if (isManual)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(l10n.editChannel),
+                onTap: () => Navigator.of(context).pop('edit'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.tv_off_outlined),
+              title: Text(l10n.markDead),
+              subtitle: Text(l10n.markDeadHint),
+              onTap: () => Navigator.of(context).pop('dead'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'edit') {
+      await context.pushNamed('edit-channel', extra: channel);
+    } else if (action == 'dead') {
+      await ref.read(toggleDeadProvider)(channel, currentlyDead: false);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.markedDead(channel.name))),
+        );
+      }
+    }
+  }
+
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    // Resolve dependencies before awaiting the dialog: the tile may be
+    // gone from the tree (list update, page pop) by the time it closes.
+    final remove = ref.read(removeCustomChannelProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -524,7 +701,7 @@ class _ChannelTile extends ConsumerWidget {
       ),
     );
     if (confirmed ?? false) {
-      await ref.read(removeCustomChannelProvider)(channel.identityKey);
+      await remove(channel.identityKey);
     }
   }
 }
@@ -561,39 +738,57 @@ class _NowNextLine extends StatelessWidget {
 }
 
 /// Small colored dot summarizing the latest probe status of a channel.
-class _ProbeStatusDot extends StatelessWidget {
-  const _ProbeStatusDot({required this.status});
+class _ProbeStatusBadge extends StatelessWidget {
+  const _ProbeStatusBadge({required this.result});
 
-  final ProbeStatus status;
+  final ProbeResult result;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final (color, label) = switch (status) {
+    final (color, label) = switch (result.status) {
       ProbeStatus.ok => (Colors.green, l10n.probeOk),
       ProbeStatus.timeout => (Colors.orange, l10n.probeTimeout),
       ProbeStatus.dead => (Colors.red, l10n.probeDead),
       ProbeStatus.unsupported => (Colors.grey, l10n.probeUnsupported),
     };
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    final latency = result.latency;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: .42)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              latency == null ? label : '$label · ${latency.inMilliseconds} ms',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 4),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
+      ),
     );
   }
 }
 
 class _EmptyHint extends StatelessWidget {
-  const _EmptyHint({required this.filter});
+  const _EmptyHint({required this.filter, required this.hasProbeResults});
 
   final ChannelFilter filter;
+  final bool hasProbeResults;
 
   @override
   Widget build(BuildContext context) {
@@ -605,7 +800,10 @@ class _EmptyHint extends StatelessWidget {
         l10n.emptySearchTitle(query),
         l10n.emptySearchHint,
       ),
-      FilterAvailable() => (l10n.emptyAvailableTitle, l10n.emptyAvailableHint),
+      FilterAvailable() when hasProbeResults => (
+        l10n.emptyAvailableTitle,
+        l10n.emptyAvailableHint,
+      ),
       _ => (l10n.emptyChannelsTitle, l10n.emptyChannelsHint),
     };
     final theme = Theme.of(context);
@@ -623,10 +821,19 @@ class _EmptyHint extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             hint,
+            textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.outline,
             ),
           ),
+          if (filter is FilterAll) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => context.pushNamed('add-subscription'),
+              icon: const Icon(Icons.playlist_add),
+              label: Text(l10n.addSubscription),
+            ),
+          ],
         ],
       ),
     );

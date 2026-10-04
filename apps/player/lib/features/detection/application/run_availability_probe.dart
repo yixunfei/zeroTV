@@ -45,24 +45,54 @@ class RunAvailabilityProbe {
     List<Channel> channels, {
     Duration timeout = const Duration(seconds: 5),
   }) async* {
-    final urlToKey = <String, String>{};
-    final urls = <String>[];
+    final urlToKeys = <String, List<String>>{};
     for (final c in channels) {
-      urlToKey[c.streamUrl] = c.identityKey;
-      urls.add(c.streamUrl);
+      urlToKeys.putIfAbsent(c.streamUrl, () => []).add(c.identityKey);
     }
+    final urls = urlToKeys.keys.toList();
     final results = <String, ProbeResult>{};
-    yield ProbeProgress(total: urls.length, completed: 0, results: results);
+    var completed = 0;
+    yield ProbeProgress(
+      total: channels.length,
+      completed: 0,
+      results: const {},
+    );
     await for (final result in _pool.probeAll(urls, timeout: timeout)) {
-      final key = urlToKey[result.url];
-      if (key == null) continue;
-      results[key] = result;
-      await _results.save(key, result);
+      final keys = urlToKeys[result.url];
+      if (keys == null) continue;
+      completed += keys.length;
+      for (final key in keys.toSet()) {
+        // A channel identity can have several source URLs. Keep the best
+        // result so failover resolution naturally prefers an available,
+        // low-latency endpoint even when probes finish out of order.
+        final previous = results[key];
+        if (_isBetter(result, previous)) {
+          results[key] = result;
+          await _results.save(key, result);
+        }
+      }
       yield ProbeProgress(
-        total: urls.length,
-        completed: results.length,
+        total: channels.length,
+        completed: completed,
         results: Map.unmodifiable(results),
       );
     }
+  }
+
+  bool _isBetter(ProbeResult candidate, ProbeResult? previous) {
+    if (previous == null) return true;
+    if (candidate.status == ProbeStatus.ok &&
+        previous.status != ProbeStatus.ok) {
+      return true;
+    }
+    if (candidate.status != ProbeStatus.ok &&
+        previous.status == ProbeStatus.ok) {
+      return false;
+    }
+    final candidateLatency = candidate.latency;
+    final previousLatency = previous.latency;
+    if (candidateLatency != null && previousLatency == null) return true;
+    if (candidateLatency == null || previousLatency == null) return false;
+    return candidateLatency < previousLatency;
   }
 }

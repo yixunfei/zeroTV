@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
@@ -81,6 +82,13 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
           const Divider(height: 32),
           ListTile(
             contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.event_note_outlined),
+            title: Text(l10n.openGuide),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.pushNamed('guide'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event_available_outlined),
             title: Text(l10n.currentSource),
             subtitle: Text(url?.toString() ?? l10n.notConfigured),
@@ -102,13 +110,31 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
 
   Future<void> _saveAndSync() async {
     final raw = _controller.text.trim();
+    // Validate before persisting: a malformed URL must not reach the
+    // settings store only to fail the sync afterwards.
+    final uri = raw.isEmpty ? null : Uri.tryParse(raw);
+    if (raw.isNotEmpty &&
+        (uri == null || !(uri.isScheme('http') || uri.isScheme('https')))) {
+      setState(() => _error = AppLocalizations.of(context).invalidHttpUrl);
+      return;
+    }
     setState(() {
       _submitting = true;
       _error = null;
     });
     try {
-      await ref.read(epgSettingsProvider).setUrl(raw);
-      final feed = await ref.read(syncEpgProvider)();
+      final settings = ref.read(epgSettingsProvider);
+      final sync = ref.read(syncEpgProvider);
+      final repository = ref.read(epgRepositoryProvider);
+      await settings.setUrl(raw);
+      if (mounted) ref.invalidate(epgUrlProvider);
+      final feed = await sync();
+      if (feed == null) {
+        // The URL was cleared: drop the previously stored data too,
+        // not just the configuration.
+        await repository.clear();
+      }
+      if (!mounted) return;
       ref
         ..invalidate(epgProgrammeCountProvider)
         ..invalidate(nowNextByEpgIdProvider);
@@ -129,9 +155,13 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
   }
 
   Future<void> _clear() async {
-    await ref.read(epgSettingsProvider).setUrl(null);
-    await ref.read(epgRepositoryProvider).clear();
+    final settings = ref.read(epgSettingsProvider);
+    final repository = ref.read(epgRepositoryProvider);
+    await settings.setUrl(null);
+    await repository.clear();
+    if (!mounted) return;
     ref
+      ..invalidate(epgUrlProvider)
       ..invalidate(epgProgrammeCountProvider)
       ..invalidate(nowNextByEpgIdProvider);
     if (!mounted) return;

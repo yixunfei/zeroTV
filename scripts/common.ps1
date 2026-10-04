@@ -46,6 +46,7 @@ function Invoke-Step {
     [Parameter(Mandatory)][scriptblock]$Action
   )
   Write-Step $Name
+  $global:LASTEXITCODE = 0
   & $Action
   if ($LASTEXITCODE -ne 0) {
     throw "步骤失败：$Name（退出码 $LASTEXITCODE）"
@@ -60,8 +61,8 @@ function Set-LocalhostProxyBypass {
     本机配了系统代理时，flutter_tester 与本地的 WebSocket 握手会被代理劫走，
     报 "Unable to connect to flutter_tester process"。对 localhost 强制直连。
   #>
-  $env:NO_PROXY = 'localhost,127.0.0.1'
-  $env:no_proxy = 'localhost,127.0.0.1'
+  $entries = @($env:NO_PROXY -split ',') + @('localhost', '127.0.0.1', '::1')
+  $env:NO_PROXY = ($entries | Where-Object { $_ } | Select-Object -Unique) -join ','
 }
 
 function Invoke-PubGetAll {
@@ -95,7 +96,7 @@ function Invoke-Codegen {
   Invoke-Step 'build_runner (drift)' {
     Push-Location $Script:AppDir
     try {
-      dart run build_runner build --delete-conflicting-outputs
+      dart run build_runner build
     } finally { Pop-Location }
   }
   Invoke-Step 'gen-l10n' {
@@ -116,4 +117,39 @@ function Initialize-WindowsPluginSymlinks {
   #>
   $ep = Join-Path $Script:AppDir 'windows\flutter\ephemeral\.plugin_symlinks'
   New-Item -ItemType Directory -Force -Path $ep | Out-Null
+}
+
+function Get-AppVersion {
+  $match = Select-String -LiteralPath (Join-Path $Script:AppDir 'pubspec.yaml') -Pattern '^version:\s*(\S+)'
+  if (-not $match) { throw 'Missing app version in pubspec.yaml' }
+  return ($match.Matches[0].Groups[1].Value -split '\+')[0]
+}
+
+function Write-ArtifactChecksums {
+  param([string[]]$Files, [string]$Path)
+  $lines = foreach ($file in $Files) {
+    '{0}  {1}' -f (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant(), (Split-Path $file -Leaf)
+  }
+  [IO.File]::WriteAllText($Path, ($lines -join "`n") + "`n", (New-Object Text.UTF8Encoding($false)))
+}
+
+function Assert-WindowsBundle {
+  param([string]$Path)
+  foreach ($name in @('zerotv_player.exe', 'flutter_windows.dll', 'libmpv-2.dll', 'data\icudtl.dat', 'data\flutter_assets')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $Path $name))) {
+      throw "Incomplete Windows bundle: missing $name"
+    }
+  }
+}
+
+function Copy-WindowsRuntime {
+  param([string]$Destination)
+  $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+  if (-not (Test-Path -LiteralPath $vswhere)) { throw 'vswhere.exe is required to locate the Visual C++ runtime' }
+  $install = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+  if ($LASTEXITCODE -ne 0 -or -not $install) { throw 'Visual C++ toolchain not found' }
+  $redist = Join-Path $install 'VC\Redist\MSVC'
+  $crt = Get-ChildItem -Path "$redist\*\x64\Microsoft.VC*.CRT" -Directory | Sort-Object FullName -Descending | Select-Object -First 1
+  if (-not $crt) { throw 'Visual C++ x64 redistributable DLLs not found' }
+  Copy-Item -Path (Join-Path $crt.FullName '*.dll') -Destination $Destination -Force
 }

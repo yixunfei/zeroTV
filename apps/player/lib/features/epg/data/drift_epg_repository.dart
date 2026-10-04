@@ -63,10 +63,15 @@ class DriftEpgRepository implements EpgRepository {
     return _db.transaction(() async {
       await _db.delete(_db.epgProgrammes).go();
       await _db.delete(_db.epgChannels).go();
+      final channels = <EpgChannel>[];
+      final seenChannelIds = <String>{};
+      for (final channel in feed.channels) {
+        if (seenChannelIds.add(channel.id)) channels.add(channel);
+      }
       await _db.batch((b) {
         b
           ..insertAll(_db.epgChannels, [
-            for (final c in feed.channels)
+            for (final c in channels)
               db.EpgChannelsCompanion.insert(
                 id: c.id,
                 displayName: c.displayName,

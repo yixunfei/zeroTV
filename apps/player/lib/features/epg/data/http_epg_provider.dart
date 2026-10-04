@@ -1,9 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:xmltv_parser/xmltv_parser.dart';
+import 'package:zerotv_player/core/text/content_encoding.dart';
 import 'package:zerotv_player/features/subscription/domain/sync_exception.dart';
 
 /// Fetches XMLTV feeds over HTTP(S), transparently gunzipping `.gz` bodies.
@@ -40,7 +40,7 @@ class HttpEpgProvider implements EpgProvider {
       if (bytes == null || bytes.isEmpty) {
         throw SubscriptionFetchException('EPG 响应为空：$uri');
       }
-      final content = _decode(bytes, uri);
+      final content = _decode(bytes);
       return parser.parse(content);
     } on DioException catch (e) {
       throw SubscriptionFetchException('EPG 拉取失败：$e');
@@ -49,11 +49,14 @@ class HttpEpgProvider implements EpgProvider {
     }
   }
 
-  String _decode(List<int> bytes, Uri uri) {
-    final isGzip =
-        (bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b) ||
-        uri.path.toLowerCase().endsWith('.gz');
+  String _decode(List<int> bytes) {
+    final isGzip = bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
     final decoded = isGzip ? gzip.decode(bytes) : bytes;
-    return utf8.decode(decoded, allowMalformed: true);
+    // Honor the prolog's encoding declaration (GBK feeds declare
+    // themselves there) instead of blindly decoding as UTF-8.
+    return decodeTextContent(
+      decoded,
+      declaredEncoding: xmlDeclaredEncoding(decoded),
+    );
   }
 }

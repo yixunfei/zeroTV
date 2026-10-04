@@ -73,6 +73,30 @@ void main() {
     expect(sync.calls, greaterThanOrEqualTo(2));
   });
 
+  test(
+    'manual scheduler stays idle and can resume with a new interval',
+    () async {
+      final sync = _FakeAutoSync(const []);
+      final scheduler = BackgroundSyncScheduler(
+        sync: sync,
+        interval: null,
+        isAndroid: false,
+      );
+      addTearDown(scheduler.stop);
+      await scheduler.start();
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(sync.calls, 0);
+      await scheduler.setInterval(const Duration(milliseconds: 15));
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      expect(sync.calls, greaterThan(0));
+      expect(sync.lastInterval, const Duration(milliseconds: 15));
+      await scheduler.setInterval(null);
+      final calls = sync.calls;
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(sync.calls, calls);
+    },
+  );
+
   test('stop cancels the in-app timer', () async {
     final sync = _FakeAutoSync(const []);
     final scheduler = BackgroundSyncScheduler(
@@ -95,10 +119,21 @@ class _FakeAutoSync implements AutoSyncService {
 
   final List<SyncFailure> _failures;
   int calls = 0;
+  Duration? lastInterval;
 
   @override
-  Future<List<SyncFailure>> syncDue({Duration? intervalOverride}) async {
+  Future<List<SyncFailure>> syncDue({
+    Duration? intervalOverride,
+    void Function(int completed, int total)? onProgress,
+  }) async {
     calls++;
+    lastInterval = intervalOverride;
+    onProgress?.call(0, 0);
     return _failures;
   }
+
+  @override
+  Future<List<SyncFailure>> syncAll({
+    void Function(int completed, int total)? onProgress,
+  }) => syncDue(onProgress: onProgress);
 }

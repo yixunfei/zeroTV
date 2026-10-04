@@ -18,5 +18,10 @@ class FakeProbeResultRepository implements ProbeResultRepository {
   }
 
   @override
+  Future<void> purgeStale(DateTime cutoff) async {
+    _results.removeWhere((_, r) => r.checkedAt.isBefore(cutoff));
+  }
+
+  @override
   Future<void> clear() async => _results.clear();
 }

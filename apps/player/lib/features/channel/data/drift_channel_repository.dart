@@ -66,7 +66,9 @@ class DriftChannelRepository implements ChannelRepository {
       final match = existing
           .where((row) => _toDomain(row).identityKey == channel.identityKey)
           .firstOrNull;
-      final position = match?.position ?? existing.length;
+      final position =
+          match?.position ??
+          (existing.isEmpty ? 0 : existing.last.position + 1);
       if (match != null) {
         await (_db.delete(
           _db.channels,
@@ -116,10 +118,13 @@ class DriftChannelRepository implements ChannelRepository {
     }
     q.orderBy([OrderingTerm.asc(_db.channels.groupTitle)]);
     return q.watch().map((rows) {
-      return [
+      // Map NULL -> label *before* deduplicating: a playlist with a real
+      // "未分组" group would otherwise yield two identical chips.
+      final groups = <String>{
         for (final r in rows)
           r.read(_db.channels.groupTitle) ?? ungroupedGroupLabel,
-      ];
+      };
+      return groups.toList()..sort();
     });
   }
 
@@ -128,6 +133,7 @@ class DriftChannelRepository implements ChannelRepository {
       name: row.name,
       streamUrl: row.streamUrl,
       tvgId: row.tvgId,
+      tvgName: row.tvgName,
       logoUrl: row.logoUrl,
       groupTitle: row.groupTitle,
       catchupSource: row.catchupSource,
@@ -147,6 +153,7 @@ class DriftChannelRepository implements ChannelRepository {
       name: Value(c.name),
       streamUrl: Value(c.streamUrl),
       tvgId: Value(c.tvgId),
+      tvgName: Value(c.tvgName),
       logoUrl: Value(c.logoUrl),
       groupTitle: Value(c.groupTitle),
       catchupSource: Value(c.catchupSource),

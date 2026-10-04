@@ -57,6 +57,7 @@ Future<ProviderContainer> _createContainer() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
   return ProviderContainer(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
   );
@@ -72,34 +73,67 @@ class BackgroundSyncScheduler {
   /// Creates the scheduler.
   BackgroundSyncScheduler({
     required AutoSyncService sync,
-    Duration interval = const Duration(hours: 1),
+    Duration? interval = const Duration(hours: 1),
     bool? isAndroid,
   }) : _sync = sync,
        _interval = interval,
        _isAndroid = isAndroid ?? Platform.isAndroid;
 
   final AutoSyncService _sync;
-  final Duration _interval;
+  Duration? _interval;
   final bool _isAndroid;
   Timer? _timer;
+  bool _running = false;
+  Future<void> _configuration = Future<void>.value();
+
+  /// Applies a changed preference without replacing the active scheduler.
+  Future<void> setInterval(Duration? interval) {
+    _interval = interval;
+    stop();
+    return start();
+  }
 
   /// Starts scheduling; safe to call once at startup.
-  Future<void> start() async {
+  Future<void> start() {
+    return _configuration = _configuration.then((_) => _configure());
+  }
+
+  Future<void> _configure() async {
+    final interval = _interval;
     if (_isAndroid) {
       try {
         await Workmanager().initialize(backgroundSyncDispatcher);
+        if (interval == null) {
+          await Workmanager().cancelByUniqueName(backgroundSyncUniqueName);
+          return;
+        }
         await Workmanager().registerPeriodicTask(
           backgroundSyncUniqueName,
           backgroundSyncTaskName,
-          frequency: _interval,
+          frequency: interval < const Duration(minutes: 15)
+              ? const Duration(minutes: 15)
+              : interval,
           constraints: Constraints(networkType: NetworkType.connected),
           existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
         );
       } on Object {
         // Background scheduling is best-effort; never block app startup.
       }
-    } else {
-      _timer ??= Timer.periodic(_interval, (_) => unawaited(_sync.syncDue()));
+    } else if (interval != null) {
+      _timer ??= Timer.periodic(interval, (_) => unawaited(_syncOnce()));
+    }
+  }
+
+  Future<void> _syncOnce() async {
+    final interval = _interval;
+    if (_running || interval == null) return;
+    _running = true;
+    try {
+      await _sync.syncDue(intervalOverride: interval);
+    } on Object {
+      // A transient database/network failure must not escape the timer.
+    } finally {
+      _running = false;
     }
   }
 
@@ -114,11 +148,14 @@ class BackgroundSyncScheduler {
 final backgroundSyncSchedulerProvider = Provider<BackgroundSyncScheduler>((
   ref,
 ) {
-  final interval = ref.watch(appSettingsProvider).syncInterval;
   final scheduler = BackgroundSyncScheduler(
     sync: ref.watch(autoSyncServiceProvider),
-    interval: interval ?? const Duration(hours: 1),
+    interval: ref.read(appSettingsProvider).syncInterval,
   );
-  ref.onDispose(scheduler.stop);
+  ref
+    ..listen(appSettingsProvider.select((s) => s.syncInterval), (_, interval) {
+      unawaited(scheduler.setInterval(interval));
+    })
+    ..onDispose(scheduler.stop);
   return scheduler;
 });

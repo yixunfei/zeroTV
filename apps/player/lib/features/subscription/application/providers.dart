@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:m3u_parser/m3u_parser.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
+import 'package:zerotv_player/core/network/retry_interceptor.dart';
 import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
+import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/add_subscription.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
+import 'package:zerotv_player/features/subscription/application/background_sync_controller.dart';
 import 'package:zerotv_player/features/subscription/application/default_source_seeder.dart';
 import 'package:zerotv_player/features/subscription/application/manage_subscription.dart';
 import 'package:zerotv_player/features/subscription/application/sync_subscription.dart';
@@ -32,12 +37,17 @@ final manageSubscriptionProvider = Provider<ManageSubscription>((ref) {
 
 /// Shared dio client for subscription fetches.
 final dioProvider = Provider<Dio>((ref) {
-  return Dio(
+  final dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      headers: const {'User-Agent': 'zeroTV/0.1.0'},
+      connectTimeout: const Duration(seconds: 10),
+      sendTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: const {'User-Agent': 'zeroTV/1.0.0'},
     ),
   );
+  dio.interceptors.add(RetryInterceptor(dio));
+  ref.onDispose(() => dio.close(force: true));
+  return dio;
 });
 
 /// Provides the [SubscriptionSourceFactory].
@@ -78,13 +88,22 @@ final autoSyncServiceProvider = Provider<AutoSyncService>((ref) {
   );
 });
 
-/// App bootstrap: seeds the built-in default subscription on first
-/// launch, then syncs everything that is due. Resolves with the list of
-/// per-subscription failures (empty means fully synced).
-final bootstrapProvider = FutureProvider<List<SyncFailure>>((ref) async {
+/// App bootstrap: seeds the built-in default subscriptions on first
+/// launch (a fast local operation), then fires the initial due-sync in
+/// the background via [backgroundSyncControllerProvider]. Resolves as
+/// soon as local state is ready so the UI can render cached channels
+/// immediately instead of waiting on the network.
+final bootstrapProvider = FutureProvider<void>((ref) async {
   await DefaultSourceSeeder(
     ref.watch(subscriptionRepositoryProvider),
     ref.watch(sharedPreferencesProvider),
   ).seedIfNeeded();
-  return ref.watch(autoSyncServiceProvider).syncDue();
+  // Expired probe results would mislead the available view and failover;
+  // purge them once per launch so the table stays bounded.
+  await ref
+      .watch(probeResultRepositoryProvider)
+      .purgeStale(
+        DateTime.now().subtract(ProbeResult.stalenessThreshold),
+      );
+  unawaited(ref.read(backgroundSyncControllerProvider.notifier).run());
 });
