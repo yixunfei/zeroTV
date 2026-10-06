@@ -83,7 +83,9 @@ class _FavoriteTile extends ConsumerWidget {
       ),
       title: Text(channel.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
-        channel.groupTitle ?? l10n.ungrouped,
+        channel.groupTitle?.trim().isNotEmpty == true
+            ? channel.groupTitle!
+            : l10n.ungrouped,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

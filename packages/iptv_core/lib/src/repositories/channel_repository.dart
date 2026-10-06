@@ -1,7 +1,13 @@
 import 'package:iptv_core/src/entities/channel.dart';
 
-/// Group label used for channels without a `group-title`.
-const ungroupedGroupLabel = '未分组';
+/// Group sentinel used for channels without a `group-title`.
+///
+/// Data layers emit this placeholder for NULL group titles (it must be a
+/// stable, comparable value so a real group with the same visible name
+/// cannot collide after localization); presentation layers render it
+/// through l10n (`ungrouped`), never verbatim. An empty string is safe:
+/// real playlists never carry empty group titles after trimming.
+const ungroupedGroupLabel = '';
 
 /// Persistence port for channels belonging to subscriptions.
 abstract interface class ChannelRepository {

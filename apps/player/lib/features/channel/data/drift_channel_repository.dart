@@ -118,8 +118,9 @@ class DriftChannelRepository implements ChannelRepository {
     }
     q.orderBy([OrderingTerm.asc(_db.channels.groupTitle)]);
     return q.watch().map((rows) {
-      // Map NULL -> label *before* deduplicating: a playlist with a real
-      // "未分组" group would otherwise yield two identical chips.
+      // Map NULL -> sentinel *before* deduplicating: a real group whose
+      // visible name happens to equal the localized "Ungrouped" label
+      // would otherwise yield two identical chips.
       final groups = <String>{
         for (final r in rows)
           r.read(_db.channels.groupTitle) ?? ungroupedGroupLabel,

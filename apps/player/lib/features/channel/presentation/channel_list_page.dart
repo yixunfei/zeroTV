@@ -324,7 +324,11 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
                 ),
                 for (final g in groups)
                   _FilterChip(
-                    label: g,
+                    // The ungrouped sentinel (empty string) renders
+                    // through l10n; real group titles pass through.
+                    label: g.isEmpty
+                        ? AppLocalizations.of(context).ungrouped
+                        : g,
                     selected: filter is FilterGroup && filter.group == g,
                     onSelected: () =>
                         ref.read(channelFilterProvider.notifier).current =
@@ -598,7 +602,9 @@ class _ChannelTile extends ConsumerWidget {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 180),
                 child: Text(
-                  channel.groupTitle ?? AppLocalizations.of(context).ungrouped,
+                  channel.groupTitle?.trim().isNotEmpty == true
+                      ? channel.groupTitle!
+                      : AppLocalizations.of(context).ungrouped,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,

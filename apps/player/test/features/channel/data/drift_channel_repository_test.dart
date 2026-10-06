@@ -58,11 +58,14 @@ void main() {
     expect(all.single.name, 'CCTV-1');
   });
 
-  test('watchAllGroups maps null group to the ungrouped label', () async {
+  test('watchAllGroups maps null group to the ungrouped sentinel', () async {
     await channels.replaceAll('s1', seedChannels);
     final groups = await channels.watchAllGroups().first;
     expect(groups, hasLength(3));
+    // The sentinel is an empty string (rendered through l10n upstream);
+    // a NULL group and a literally-empty group title collapse into one.
     expect(groups, containsAll(['央视', '卫视', ungroupedGroupLabel]));
+    expect(ungroupedGroupLabel, '');
   });
 
   test('watchBySubscription filters by subscription', () async {
