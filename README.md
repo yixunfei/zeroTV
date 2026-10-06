@@ -75,6 +75,11 @@ Universal APK 和 Windows x64 便携 ZIP，生成 SHA-256 校验文件并直接�
 Android 签名可通过仓库 Secrets `ZEROTV_KEYSTORE_B64`、`ZEROTV_KEYSTORE_PASSWORD`、
 `ZEROTV_KEY_ALIAS`、`ZEROTV_KEY_PASSWORD` 提供；未配置时只适合开发测试。
 
+## 贡献
+
+欢迎提交 PR 与 issue；提交前的质量门、代码约定与测试期望见
+[CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## 许可证
 
 zeroTV 自有代码以 [MIT License](LICENSE) 发布。第三方依赖保留各自许可证；其中
