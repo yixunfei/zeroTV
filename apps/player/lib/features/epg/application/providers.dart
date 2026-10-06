@@ -38,10 +38,19 @@ final syncEpgProvider = Provider<SyncEpg>((ref) {
 });
 
 /// Provides the [RefreshEpg] use case (interval-gated auto refresh).
+///
+/// After a successful background refresh the static EPG providers are
+/// invalidated so open pages (guide, settings, channel now/next) show
+/// the new data without waiting for a route rebuild.
 final refreshEpgProvider = Provider<RefreshEpg>((ref) {
   return RefreshEpg(
     sync: ref.watch(syncEpgProvider),
     settings: ref.watch(epgSettingsProvider),
+    onRefreshed: () {
+      ref
+        ..invalidate(epgProgrammeCountProvider)
+        ..invalidate(nowNextByEpgIdProvider);
+    },
   );
 });
 

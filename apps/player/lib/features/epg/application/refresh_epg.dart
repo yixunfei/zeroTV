@@ -11,6 +11,11 @@ const epgRefreshInterval = Duration(hours: 12);
 /// one call checks the last-sync stamp and only re-fetches when the
 /// configured source's data is older than [epgRefreshInterval]. Manual
 /// syncs bypass this gate entirely (the user intent is explicit).
+///
+/// The `onRefreshed` constructor parameter runs after a successful
+/// refresh so the caller can invalidate UI caches (the EPG providers
+/// are static futures, not drift streams). Its failures are swallowed:
+/// the refreshed data is already persisted.
 class RefreshEpg {
   /// Creates the use case.
   RefreshEpg({
@@ -18,15 +23,18 @@ class RefreshEpg {
     required EpgSettings settings,
     Duration interval = epgRefreshInterval,
     DateTime Function() now = DateTime.now,
+    void Function()? onRefreshed,
   }) : _sync = sync,
        _settings = settings,
        _interval = interval,
-       _now = now;
+       _now = now,
+       _onRefreshed = onRefreshed;
 
   final SyncEpg _sync;
   final EpgSettings _settings;
   final Duration _interval;
   final DateTime Function() _now;
+  final void Function()? _onRefreshed;
 
   /// Syncs the EPG feed when its data has expired: no-op when no URL
   /// is configured or the last successful sync is younger than the
@@ -40,7 +48,14 @@ class RefreshEpg {
     }
     try {
       final feed = await _sync();
-      return feed != null;
+      if (feed == null) return false;
+      // Data persisted; notifying the UI is best-effort from here on.
+      try {
+        _onRefreshed?.call();
+      } on Object {
+        // Ignored by design (see constructor doc).
+      }
+      return true;
     } on Object {
       // A failed refresh keeps the previous stamp: the next pass will
       // retry once the interval has truly elapsed since the last good

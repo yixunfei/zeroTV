@@ -17,11 +17,13 @@ void main() {
     required void Function() onSync,
     EpgFeed? Function() behavior = _okFeed,
     DateTime Function()? now,
+    void Function()? onRefreshed,
   }) {
     return RefreshEpg(
       sync: _RecordingSync(behavior, onSync),
       settings: EpgSettings(prefs),
       now: now ?? DateTime.now,
+      onRefreshed: onRefreshed,
     );
   }
 
@@ -115,6 +117,79 @@ void main() {
     await sync();
 
     expect(EpgSettings(prefs).lastSyncedAt!.isAtSameMomentAs(fixed), isTrue);
+  });
+
+  test('a successful refresh notifies the UI cache callback', () async {
+    final prefs = await prefsWith({
+      'epg_url': 'https://example.com/epg.xml',
+    });
+    var notified = 0;
+    final refresh = buildRefresh(
+      prefs,
+      onSync: () {},
+      onRefreshed: () => notified++,
+    );
+
+    final ran = await refresh();
+
+    expect(ran, isTrue);
+    expect(notified, 1);
+  });
+
+  test('a skipped refresh does not notify the callback', () async {
+    final prefs = await prefsWith({
+      'epg_url': 'https://example.com/epg.xml',
+      'epg_last_synced_at': DateTime.now()
+          .subtract(const Duration(hours: 1))
+          .millisecondsSinceEpoch,
+    });
+    var notified = 0;
+    final refresh = buildRefresh(
+      prefs,
+      onSync: () {},
+      onRefreshed: () => notified++,
+    );
+
+    await refresh();
+
+    expect(notified, 0);
+  });
+
+  test('a failed refresh does not notify the callback', () async {
+    final prefs = await prefsWith({
+      'epg_url': 'https://example.com/epg.xml',
+    });
+    var notified = 0;
+    final refresh = buildRefresh(
+      prefs,
+      onSync: () {},
+      behavior: () => throw const SubscriptionFetchException(
+        SyncErrorReason.epgFetchFailed,
+        'offline',
+      ),
+      onRefreshed: () => notified++,
+    );
+
+    final ran = await refresh();
+
+    expect(ran, isFalse);
+    expect(notified, 0);
+  });
+
+  test('a throwing callback does not fail the refresh', () async {
+    final prefs = await prefsWith({
+      'epg_url': 'https://example.com/epg.xml',
+    });
+    final refresh = buildRefresh(
+      prefs,
+      onSync: () {},
+      onRefreshed: () => throw StateError('cache invalidation blew up'),
+    );
+
+    final ran = await refresh();
+
+    // Data was persisted; the notification failure must not surface.
+    expect(ran, isTrue);
   });
 }
 
