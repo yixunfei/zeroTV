@@ -13,6 +13,7 @@ import 'package:zerotv_player/core/settings/settings_providers.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
+import 'package:zerotv_player/features/player/application/catchup_url.dart';
 import 'package:zerotv_player/features/player/application/playback_session.dart';
 import 'package:zerotv_player/features/player/presentation/player_chrome.dart';
 import 'package:zerotv_player/features/player/presentation/player_controls.dart';
@@ -641,14 +642,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Future<void> _openCatchup(Channel channel, EpgProgram programme) async {
     final template = channel.catchupSource;
     if (template == null) return;
-    final utc = programme.start.toUtc();
-    final stamp = '${utc.millisecondsSinceEpoch ~/ 1000}';
-    final iso = utc.toIso8601String();
-    final url = template
-        .replaceAll(r'${utc}', iso)
-        .replaceAll('{utc}', iso)
-        .replaceAll(r'${timestamp}', stamp)
-        .replaceAll('{timestamp}', stamp);
+    final url = buildCatchupUrl(template, programme);
     // Suspend the session's source failover: a failing catchup stream
     // must surface its error instead of kicking the user back to live.
     setState(() {
