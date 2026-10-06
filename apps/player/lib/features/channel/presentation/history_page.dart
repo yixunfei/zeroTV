@@ -133,6 +133,7 @@ class _HistoryTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final gone = channelsLoaded && channel == null;
+    final watched = _fmt(context, entry.watchedAt);
     return ListTile(
       enabled: !gone,
       leading: const Icon(Icons.play_circle_outline),
@@ -142,9 +143,7 @@ class _HistoryTile extends ConsumerWidget {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        gone
-            ? '${_fmt(entry.watchedAt)} · ${l10n.historyChannelGone}'
-            : _fmt(entry.watchedAt),
+        gone ? '$watched · ${l10n.historyChannelGone}' : watched,
       ),
       trailing: IconButton(
         icon: const Icon(Icons.close),
@@ -157,10 +156,16 @@ class _HistoryTile extends ConsumerWidget {
     );
   }
 
-  static String _fmt(DateTime at) {
+  /// Locale-aware "date + time" formatting via MaterialLocalizations,
+  /// consistent with the subscriptions page.
+  static String _fmt(BuildContext context, DateTime at) {
+    final local = MaterialLocalizations.of(context);
     final t = at.toLocal();
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${t.year}-${two(t.month)}-${two(t.day)} '
-        '${two(t.hour)}:${two(t.minute)}';
+    final date = local.formatShortDate(t);
+    final time = local.formatTimeOfDay(
+      TimeOfDay.fromDateTime(t),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+    return '$date $time';
   }
 }

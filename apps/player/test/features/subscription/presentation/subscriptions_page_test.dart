@@ -24,11 +24,17 @@ void main() {
     kind: SubscriptionKind.pastedText,
     enabled: false,
   );
+  const manual = Subscription(
+    id: 'manual',
+    name: '我的频道',
+    kind: SubscriptionKind.manual,
+    enabled: false,
+  );
 
   late FakeSubscriptionRepository subscriptions;
 
   Future<void> pumpPage(WidgetTester tester) async {
-    subscriptions = FakeSubscriptionRepository([remote, pasted]);
+    subscriptions = FakeSubscriptionRepository([remote, pasted, manual]);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -47,7 +53,10 @@ void main() {
 
   Future<void> openMenu(WidgetTester tester, {required bool second}) async {
     final menus = find.byType(PopupMenuButton<String>);
-    await tester.tap(second ? menus.last : menus.first);
+    // Rows render in insertion order: [remote, pasted, manual]; the
+    // app-bar has no menu of this type, so indexes align with rows.
+    final menu = second ? menus.at(1) : menus.first;
+    await tester.tap(menu);
     // Popup routes animate (~300ms); fixed pumps finish too early and
     // the following tap misses the half-open menu. Fakes have no
     // pending timers, so settling is safe.
@@ -63,14 +72,29 @@ void main() {
     expect(find.textContaining('粘贴导入 · 3 个频道 · 从未同步'), findsOneWidget);
   });
 
+  testWidgets(
+    'manual subscription shows the localized kind label, not the stored name',
+    (tester) async {
+      await pumpPage(tester);
+
+      // The stored name is a legacy storage identifier; the page must
+      // render the localized kind label instead (zh: 自定义频道).
+      expect(find.text('自定义频道'), findsOneWidget);
+      expect(find.text('我的频道'), findsNothing);
+    },
+  );
+
   testWidgets('pasted subscription has sync disabled', (tester) async {
     await pumpPage(tester);
 
     final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
-    expect(switches, hasLength(2));
+    // remote (enabled/disabled toggle) + pasted + manual (both untoggleable)
+    expect(switches, hasLength(3));
     expect(switches[0].onChanged, isNotNull);
     expect(switches[1].onChanged, isNull);
+    expect(switches[2].onChanged, isNull);
 
+    // The pasted tile is the second row's menu.
     await openMenu(tester, second: true);
     final syncItem = tester.widget<PopupMenuItem<String>>(
       find.widgetWithText(PopupMenuItem<String>, '立即同步'),
@@ -121,8 +145,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final remaining = await subscriptions.getAll();
-    expect(remaining, hasLength(1));
-    expect(remaining.single.id, 's1');
+    expect(remaining, hasLength(2));
+    expect(remaining.map((s) => s.id), containsAll(['s1', 'manual']));
     expect(find.text('粘贴的'), findsNothing);
   });
 }

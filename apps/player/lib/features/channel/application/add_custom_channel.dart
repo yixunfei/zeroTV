@@ -1,6 +1,11 @@
 import 'package:iptv_core/iptv_core.dart';
 
 /// Name of the implicit subscription that owns user-added channels.
+///
+/// This constant is a stable storage identifier, not display copy: the
+/// subscriptions page renders it through l10n (`kindManual` label), so
+/// an English user sees "Custom channels" instead of Chinese text.
+/// Keep it unchanged so existing databases keep matching.
 const manualSubscriptionName = '我的频道';
 
 /// Stable id of the implicit manual subscription. A fixed id makes lazy

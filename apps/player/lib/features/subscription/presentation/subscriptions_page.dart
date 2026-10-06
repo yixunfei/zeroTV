@@ -104,8 +104,18 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
     final l10n = AppLocalizations.of(context);
     final counts = ref.watch(channelCountsProvider).value ?? const {};
     final count = counts[_sub.id] ?? 0;
+    // Manual subscriptions store a fixed (Chinese-era) name as their
+    // storage identity; display the localized kind label instead so
+    // non-Chinese users never see the raw stored name.
+    final displayName = _sub.kind == SubscriptionKind.manual
+        ? l10n.kindManual
+        : _sub.name;
     return ListTile(
-      title: Text(_sub.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(
+        displayName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       subtitle: Text(
         l10n.subscriptionMeta(
           _kindLabel(l10n, _sub.kind),
@@ -208,9 +218,15 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
       context: context,
       builder: (context) {
         final l10n = AppLocalizations.of(context);
+        // Same display-name rule as the tile title.
+        final displayName = _sub.kind == SubscriptionKind.manual
+            ? l10n.kindManual
+            : _sub.name;
         return AlertDialog(
           title: Text(l10n.deleteSubscription),
-          content: Text(l10n.deleteSubscriptionBody(_sub.name, count)),
+          content: Text(
+            l10n.deleteSubscriptionBody(displayName, count),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -238,13 +254,19 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
     };
   }
 
-  static String _syncLabel(AppLocalizations l10n, Subscription sub) {
+  String _syncLabel(AppLocalizations l10n, Subscription sub) {
     final synced = sub.lastSyncedAt;
     if (synced == null) return l10n.neverSynced;
-    final t = synced.toLocal();
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${t.year}-${two(t.month)}-${two(t.day)} '
-        '${two(t.hour)}:${two(t.minute)}';
+    // Locale-aware formatting keeps the column consistent with the
+    // history page and the rest of the app.
+    final local = MaterialLocalizations.of(context);
+    final localSynced = synced.toLocal();
+    final date = local.formatShortDate(localSynced);
+    final time = local.formatTimeOfDay(
+      TimeOfDay.fromDateTime(localSynced),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+    return '$date $time';
   }
 }
 
