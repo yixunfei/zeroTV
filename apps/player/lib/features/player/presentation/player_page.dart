@@ -21,6 +21,7 @@ import 'package:zerotv_player/features/player/presentation/player_osd.dart';
 import 'package:zerotv_player/features/recording/application/manage_recording.dart';
 import 'package:zerotv_player/features/recording/application/providers.dart';
 import 'package:zerotv_player/features/recording/data/stream_recorder.dart';
+import 'package:zerotv_player/features/recording/domain/segmented_playlist.dart';
 import 'package:zerotv_player/features/shared/presentation/error_localization.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
@@ -78,14 +79,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Channel get _current => _session?.current ?? widget.channel;
   bool get _isLocal => Uri.tryParse(widget.channel.streamUrl)?.scheme == 'file';
 
-  /// HLS/DASH playlists cannot be captured byte-stream style.
+  /// HLS/DASH playlists cannot be captured byte-stream style; the same
+  /// predicate the recorder enforces (see [isSegmentedPlaylistUrl]).
   bool get _recordUnsupported =>
-      _isLocal ||
-      _inCatchup ||
-      RegExp(
-        r'\.(m3u8?|mpd)(\?|$)',
-        caseSensitive: false,
-      ).hasMatch(_current.streamUrl);
+      _isLocal || _inCatchup || isSegmentedPlaylistUrl(_current.streamUrl);
 
   /// Whether the record button should be enabled.
   bool get _canRecord => !_recordUnsupported;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:zerotv_player/features/recording/domain/recording_exception.dart';
+import 'package:zerotv_player/features/recording/domain/segmented_playlist.dart';
 
 /// A capture whose completion includes flushing and closing its output file.
 class RecordingHandle {
@@ -99,7 +100,7 @@ class StreamRecorder {
         'only direct HTTP(S) media streams can be recorded',
       );
     }
-    if (RegExp(r'\.(m3u8?|mpd)$', caseSensitive: false).hasMatch(url.path)) {
+    if (isSegmentedPlaylistUrl('$url')) {
       throw const RecordingException(
         RecordingErrorReason.unsupportedPlaylist,
         'HLS/DASH segmented streams are not supported',
