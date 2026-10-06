@@ -8,6 +8,10 @@ class EpgSettings {
   /// Shared-preferences key holding the EPG URL.
   static const urlKey = 'epg_url';
 
+  /// Shared-preferences key holding the last successful sync time
+  /// (epoch milliseconds).
+  static const lastSyncedKey = 'epg_last_synced_at';
+
   final SharedPreferences _prefs;
 
   /// The configured EPG URL, or null when unset/blank.
@@ -17,6 +21,12 @@ class EpgSettings {
     return Uri.tryParse(raw.trim());
   }
 
+  /// When the EPG feed was last successfully synced; null when never.
+  DateTime? get lastSyncedAt {
+    final ms = _prefs.getInt(lastSyncedKey);
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
   /// Sets (or clears, when [value] is null/blank) the EPG URL.
   Future<void> setUrl(String? value) async {
     if (value == null || value.trim().isEmpty) {
@@ -24,5 +34,10 @@ class EpgSettings {
     } else {
       await _prefs.setString(urlKey, value.trim());
     }
+  }
+
+  /// Records a successful sync at [at].
+  Future<void> setLastSynced(DateTime at) {
+    return _prefs.setInt(lastSyncedKey, at.millisecondsSinceEpoch);
   }
 }

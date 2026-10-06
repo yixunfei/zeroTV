@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/core/settings/settings_providers.dart';
+import 'package:zerotv_player/features/epg/application/providers.dart';
+import 'package:zerotv_player/features/epg/application/refresh_epg.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 
@@ -37,7 +39,9 @@ void backgroundSyncDispatcher() {
 /// plugin registration performed for the background isolate.
 ///
 /// Honors the user's global sync-interval setting: when it is null
-/// ("manual only"), the pass is a no-op.
+/// ("manual only"), the pass is a no-op. Also refreshes the EPG feed
+/// when its stored data has expired (see [RefreshEpg]); an EPG failure
+/// does not mark the pass as failed.
 Future<bool> runBackgroundSync({ProviderContainer? container}) async {
   final ownsContainer = container == null;
   final resolved = container ?? await _createContainer();
@@ -47,6 +51,13 @@ Future<bool> runBackgroundSync({ProviderContainer? container}) async {
     final failures = await resolved
         .read(autoSyncServiceProvider)
         .syncDue(intervalOverride: interval);
+    // Piggyback EPG refresh on the same pass; best-effort.
+    try {
+      await resolved.read(refreshEpgProvider)();
+    } on Object {
+      // RefreshEpg already swallows its own errors; only a provider
+      // construction failure could land here and must not fail the pass.
+    }
     return failures.isEmpty;
   } finally {
     if (ownsContainer) resolved.dispose();
@@ -68,18 +79,22 @@ Future<ProviderContainer> _createContainer() async {
 /// On Android this registers a WorkManager periodic task (survives app
 /// restarts); elsewhere (desktop has no reliable background mechanism) it
 /// runs an in-app timer. In both cases [AutoSyncService.syncDue] gates the
-/// actual work by each subscription's own interval.
+/// actual work by each subscription's own interval. Each pass also
+/// refreshes the EPG feed when its data has expired ([RefreshEpg]).
 class BackgroundSyncScheduler {
   /// Creates the scheduler.
   BackgroundSyncScheduler({
     required AutoSyncService sync,
+    RefreshEpg? refreshEpg,
     Duration? interval = const Duration(hours: 1),
     bool? isAndroid,
   }) : _sync = sync,
+       _refreshEpg = refreshEpg,
        _interval = interval,
        _isAndroid = isAndroid ?? Platform.isAndroid;
 
   final AutoSyncService _sync;
+  final RefreshEpg? _refreshEpg;
   Duration? _interval;
   final bool _isAndroid;
   Timer? _timer;
@@ -130,6 +145,9 @@ class BackgroundSyncScheduler {
     _running = true;
     try {
       await _sync.syncDue(intervalOverride: interval);
+      // Piggyback the interval-gated EPG refresh on the same pass;
+      // RefreshEpg swallows its own failures.
+      await _refreshEpg?.call();
     } on Object {
       // A transient database/network failure must not escape the timer.
     } finally {
@@ -150,6 +168,7 @@ final backgroundSyncSchedulerProvider = Provider<BackgroundSyncScheduler>((
 ) {
   final scheduler = BackgroundSyncScheduler(
     sync: ref.watch(autoSyncServiceProvider),
+    refreshEpg: ref.watch(refreshEpgProvider),
     interval: ref.read(appSettingsProvider).syncInterval,
   );
   ref

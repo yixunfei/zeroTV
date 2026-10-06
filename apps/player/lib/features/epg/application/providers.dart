@@ -7,6 +7,7 @@ import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart'
 import 'package:zerotv_player/features/epg/application/epg_guide.dart';
 import 'package:zerotv_player/features/epg/application/epg_index.dart';
 import 'package:zerotv_player/features/epg/application/epg_settings.dart';
+import 'package:zerotv_player/features/epg/application/refresh_epg.dart';
 import 'package:zerotv_player/features/epg/application/sync_epg.dart';
 import 'package:zerotv_player/features/epg/data/drift_epg_repository.dart';
 import 'package:zerotv_player/features/epg/data/http_epg_provider.dart';
@@ -32,6 +33,14 @@ final syncEpgProvider = Provider<SyncEpg>((ref) {
   return SyncEpg(
     provider: ref.watch(epgFeedProvider),
     repository: ref.watch(epgRepositoryProvider),
+    settings: ref.watch(epgSettingsProvider),
+  );
+});
+
+/// Provides the [RefreshEpg] use case (interval-gated auto refresh).
+final refreshEpgProvider = Provider<RefreshEpg>((ref) {
+  return RefreshEpg(
+    sync: ref.watch(syncEpgProvider),
     settings: ref.watch(epgSettingsProvider),
   );
 });
