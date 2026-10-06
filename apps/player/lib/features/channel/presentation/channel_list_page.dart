@@ -581,7 +581,10 @@ class _ChannelTile extends ConsumerWidget {
             ) ??
         false;
     return ListTile(
-      leading: ChannelLogo(logoUrl: channel.logoUrl),
+      leading: ChannelLogo(
+        logoUrl: channel.logoUrl,
+        headers: channel.httpHeaders,
+      ),
       title: Text(channel.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

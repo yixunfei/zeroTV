@@ -77,7 +77,10 @@ class _FavoriteTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     return ListTile(
-      leading: ChannelLogo(logoUrl: channel.logoUrl),
+      leading: ChannelLogo(
+        logoUrl: channel.logoUrl,
+        headers: channel.httpHeaders,
+      ),
       title: Text(channel.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         channel.groupTitle ?? l10n.ungrouped,
