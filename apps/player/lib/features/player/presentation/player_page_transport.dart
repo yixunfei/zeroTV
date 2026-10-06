@@ -40,7 +40,7 @@ class _TopBar extends ConsumerWidget {
           ? l10n.backupSource(source.groupTitle ?? source.streamUrl)
           : null,
       inCatchup: inCatchup,
-      isLocal: Uri.tryParse(channel.streamUrl)?.scheme == 'file',
+      isLocal: channel.isLocalFile,
       isLandscape: isLandscape,
       onBack: () => context.pop(),
       onReturnToLive: onReturnToLive,

@@ -56,6 +56,13 @@ class Channel {
     return id == null || id.isEmpty ? name.trim().toLowerCase() : id;
   }
 
+  /// Whether this stream points at a local file (recordings played
+  /// back from disk). Single source of truth for UI affordances that
+  /// differ between local files and live streams (live badge, watch
+  /// history, recording).
+  bool get isLocalFile =>
+      Uri.tryParse(streamUrl)?.scheme.toLowerCase() == 'file';
+
   /// HTTP headers required to fetch/play this channel, if any.
   Map<String, String> get httpHeaders => {
     'User-Agent': ?userAgent,

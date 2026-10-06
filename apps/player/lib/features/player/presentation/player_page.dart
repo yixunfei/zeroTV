@@ -77,7 +77,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   Duration? _seekDelta;
 
   Channel get _current => _session?.current ?? widget.channel;
-  bool get _isLocal => Uri.tryParse(widget.channel.streamUrl)?.scheme == 'file';
+  bool get _isLocal => widget.channel.isLocalFile;
 
   /// HLS/DASH playlists cannot be captured byte-stream style; the same
   /// predicate the recorder enforces (see [isSegmentedPlaylistUrl]).

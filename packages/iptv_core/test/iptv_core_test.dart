@@ -69,6 +69,19 @@ void main() {
         {'User-Agent': 'UA', 'Referer': 'REF'},
       );
     });
+
+    test('isLocalFile matches only file scheme, case-insensitively', () {
+      const local = Channel(name: 'rec', streamUrl: 'file:///C:/tv/a.ts');
+      const upper = Channel(name: 'rec', streamUrl: 'FILE:///C:/tv/a.ts');
+      const remote = Channel(name: 'live', streamUrl: 'http://a/1.m3u8');
+      const rtsp = Channel(name: 'live', streamUrl: 'rtsp://a/1');
+      const bogus = Channel(name: 'x', streamUrl: '::not a url::');
+      expect(local.isLocalFile, isTrue);
+      expect(upper.isLocalFile, isTrue);
+      expect(remote.isLocalFile, isFalse);
+      expect(rtsp.isLocalFile, isFalse);
+      expect(bogus.isLocalFile, isFalse);
+    });
   });
 
   group('Subscription.isDue', () {
