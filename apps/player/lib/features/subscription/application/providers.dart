@@ -9,6 +9,7 @@ import 'package:zerotv_player/core/network/retry_interceptor.dart';
 import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
 import 'package:zerotv_player/features/detection/application/providers.dart';
+import 'package:zerotv_player/features/epg/application/providers.dart';
 import 'package:zerotv_player/features/subscription/application/add_subscription.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/background_sync_controller.dart';
@@ -67,6 +68,9 @@ final syncSubscriptionProvider = Provider<SyncSubscription>((ref) {
     parser: ref.watch(playlistParserProvider),
     subscriptions: ref.watch(subscriptionRepositoryProvider),
     channels: ref.watch(channelRepositoryProvider),
+    // Playlist-advertised EPG pointers are adopted only when the user
+    // has no EPG source of their own (see adoptPlaylistEpgUrlProvider).
+    adoptEpgUrl: ref.watch(adoptPlaylistEpgUrlProvider),
   );
 });
 

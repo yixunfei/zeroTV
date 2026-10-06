@@ -90,6 +90,70 @@ void main() {
     expect(stored.isDue, isFalse);
   });
 
+  test(
+    'sync offers the playlist-advertised EPG URL to the adoption callback',
+    () async {
+      await subscriptions.upsert(sub);
+      final adopted = <Uri>[];
+      final sync = SyncSubscription(
+        sources: _FakeFactory(
+          () async => const RawPlaylist(content: _sampleM3u),
+        ),
+        parser: const M3uPlaylistParser(),
+        subscriptions: subscriptions,
+        channels: channels,
+        adoptEpgUrl: (url) async => adopted.add(url),
+      );
+
+      await sync(sub);
+
+      expect(adopted, [Uri.parse('https://example.com/epg.xml')]);
+    },
+  );
+
+  test(
+    'a playlist without an EPG pointer never invokes the callback',
+    () async {
+      await subscriptions.upsert(sub);
+      const noEpg = '''
+#EXTM3U
+#EXTINF:-1 tvg-id="cctv1" group-title="央视",CCTV-1
+http://example.com/1.m3u8
+''';
+      var invoked = false;
+      final sync = SyncSubscription(
+        sources: _FakeFactory(() async => const RawPlaylist(content: noEpg)),
+        parser: const M3uPlaylistParser(),
+        subscriptions: subscriptions,
+        channels: channels,
+        adoptEpgUrl: (_) async => invoked = true,
+      );
+
+      await sync(sub);
+
+      expect(invoked, isFalse);
+    },
+  );
+
+  test('an adoption failure does not fail the sync', () async {
+    await subscriptions.upsert(sub);
+    final sync = SyncSubscription(
+      sources: _FakeFactory(
+        () async => const RawPlaylist(content: _sampleM3u),
+      ),
+      parser: const M3uPlaylistParser(),
+      subscriptions: subscriptions,
+      channels: channels,
+      adoptEpgUrl: (_) async => throw StateError('settings unavailable'),
+    );
+
+    final result = await sync(sub);
+
+    // Channels are stored and the sync still reports success.
+    expect(result.channelCount, 2);
+    expect(await channels.watchAll().first, hasLength(2));
+  });
+
   test('failed sync preserves previously stored channels', () async {
     await subscriptions.upsert(sub);
     await buildSync(() async => const RawPlaylist(content: _sampleM3u))(sub);

@@ -35,20 +35,29 @@ class SyncResult {
 /// channel group is renamed into that prefix's section.
 class SyncSubscription {
   /// Creates the use case.
+  ///
+  /// [adoptEpgUrl] is invoked after a successful replace with the EPG
+  /// URL the playlist advertised (`x-tvg-url`); the wiring decides
+  /// whether adopting it is appropriate (e.g. only when the user has
+  /// not configured their own EPG source). Failures inside it must not
+  /// fail the sync — the channels are already stored.
   SyncSubscription({
     required SubscriptionSourceFactory sources,
     required PlaylistParser parser,
     required SubscriptionRepository subscriptions,
     required ChannelRepository channels,
+    Future<void> Function(Uri epgUrl)? adoptEpgUrl,
   }) : _sources = sources,
        _parser = parser,
        _subscriptions = subscriptions,
-       _channels = channels;
+       _channels = channels,
+       _adoptEpgUrl = adoptEpgUrl;
 
   final SubscriptionSourceFactory _sources;
   final PlaylistParser _parser;
   final SubscriptionRepository _subscriptions;
   final ChannelRepository _channels;
+  final Future<void> Function(Uri epgUrl)? _adoptEpgUrl;
 
   /// Syncs [subscription] and returns the result.
   Future<SyncResult> call(Subscription subscription) async {
@@ -73,10 +82,20 @@ class SyncSubscription {
     }
     await _channels.replaceAll(subscription.id, cleaned);
     await _subscriptions.markSynced(subscription.id, DateTime.now());
+    final epgUrl = parsed.epgUrl;
+    if (epgUrl != null) {
+      // Best-effort adoption: channels are already stored, so a failure
+      // here must neither fail the sync nor roll anything back.
+      try {
+        await _adoptEpgUrl?.call(epgUrl);
+      } on Object {
+        // Ignored by design (see constructor doc).
+      }
+    }
     return SyncResult(
       subscriptionId: subscription.id,
       channelCount: cleaned.length,
-      epgUrl: parsed.epgUrl,
+      epgUrl: epgUrl,
     );
   }
 

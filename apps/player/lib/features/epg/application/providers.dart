@@ -41,6 +41,23 @@ final epgUrlProvider = Provider<Uri?>((ref) {
   return ref.watch(epgSettingsProvider).url;
 });
 
+/// Adopts a playlist-advertised EPG URL (`x-tvg-url`) as the configured
+/// source, but only while the user has not configured one themselves —
+/// an explicit user choice is never silently replaced by a source's
+/// pointer. Wired into subscription sync (SyncSubscription).
+final adoptPlaylistEpgUrlProvider = Provider<Future<void> Function(Uri epgUrl)>(
+  (ref) {
+    return (Uri epgUrl) async {
+      final settings = ref.read(epgSettingsProvider);
+      if (settings.url != null) return;
+      await settings.setUrl('$epgUrl');
+      // The URL provider caches the read; refresh it so dependent
+      // widgets (settings page, guide) see the adopted source.
+      ref.invalidate(epgUrlProvider);
+    };
+  },
+);
+
 /// Number of stored EPG programmes overlapping the next 24 hours.
 ///
 /// EPG data is static (not a drift stream); callers invalidate this after a
