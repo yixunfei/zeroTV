@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
+import 'package:zerotv_player/features/shared/presentation/error_localization.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
@@ -224,7 +225,9 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
       context.pop();
     } on Object catch (e) {
       if (!mounted) return;
-      setState(() => _error = '$e');
+      setState(
+        () => _error = localizedErrorText(AppLocalizations.of(context), e),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

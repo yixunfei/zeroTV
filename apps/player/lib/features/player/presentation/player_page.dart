@@ -21,6 +21,7 @@ import 'package:zerotv_player/features/player/presentation/player_osd.dart';
 import 'package:zerotv_player/features/recording/application/manage_recording.dart';
 import 'package:zerotv_player/features/recording/application/providers.dart';
 import 'package:zerotv_player/features/recording/data/stream_recorder.dart';
+import 'package:zerotv_player/features/shared/presentation/error_localization.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 part 'player_page_panels.dart';
@@ -723,7 +724,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     } on Object catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text(l10n.recordingFailed('$e'))),
+          SnackBar(
+            content: Text(
+              l10n.recordingFailed(localizedErrorText(l10n, e)),
+            ),
+          ),
         );
       }
     } finally {
@@ -748,7 +753,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? l10n.recordingSaved : l10n.recordingFailed(error),
+          error == null
+              ? l10n.recordingSaved
+              // Capture-done failures carry a raw exception message
+              // (network/disk), not a data-layer reason enum.
+              : l10n.recordingFailed(error),
         ),
       ),
     );

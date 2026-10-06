@@ -38,14 +38,23 @@ class HttpEpgProvider implements EpgProvider {
       );
       final bytes = res.data;
       if (bytes == null || bytes.isEmpty) {
-        throw SubscriptionFetchException('EPG 响应为空：$uri');
+        throw SubscriptionFetchException(
+          SyncErrorReason.epgEmptyBody,
+          'empty body ($uri)',
+        );
       }
       final content = _decode(bytes);
       return parser.parse(content);
     } on DioException catch (e) {
-      throw SubscriptionFetchException('EPG 拉取失败：$e');
+      throw SubscriptionFetchException(
+        SyncErrorReason.epgFetchFailed,
+        'fetch failed: $e',
+      );
     } on FormatException catch (e) {
-      throw SubscriptionFetchException('EPG 解析失败：$e');
+      throw SubscriptionFetchException(
+        SyncErrorReason.epgParseFailed,
+        'parse failed: $e',
+      );
     }
   }
 

@@ -87,7 +87,10 @@ class AddSubscription {
     // in the ad/promotion channels SyncSubscription would drop.
     final cleaned = _sync.cleanChannels(sub, parsed.channels);
     if (cleaned.isEmpty) {
-      throw const SubscriptionFetchException('未找到有效频道');
+      throw const SubscriptionFetchException(
+        SyncErrorReason.pastedNoValidChannels,
+        'no valid channels',
+      );
     }
     await _subscriptions.upsert(sub);
     try {

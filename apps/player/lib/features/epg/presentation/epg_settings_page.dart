@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
+import 'package:zerotv_player/features/shared/presentation/error_localization.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Page for configuring the EPG feed URL and syncing it.
@@ -148,7 +149,9 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
       ).showSnackBar(SnackBar(content: Text(message)));
     } on Object catch (e) {
       if (!mounted) return;
-      setState(() => _error = '$e');
+      setState(
+        () => _error = localizedErrorText(AppLocalizations.of(context), e),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

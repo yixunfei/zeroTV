@@ -368,5 +368,23 @@
       "channel": { "type": "String" },
       "time": { "type": "String" }
     }
-  }
+  },
+  "errFileMissing": "播放列表文件不存在",
+  "errFileReadFailed": "读取播放列表文件失败",
+  "errEmptyBody": "订阅源返回了空内容",
+  "errNotAPlaylist": "订阅源返回的不是有效的 M3U 播放列表",
+  "errAllMirrorsUnreachable": "所有候选地址均不可达",
+  "errNoValidChannels": "订阅中没有有效频道，已保留原有数据",
+  "errPastedNoValidChannels": "未找到有效频道",
+  "errEpgEmptyBody": "EPG 源返回了空内容",
+  "errEpgFetchFailed": "拉取 EPG 数据失败，请检查网络或稍后重试",
+  "errEpgParseFailed": "EPG 数据解析失败，可能不是有效的 XMLTV 格式",
+  "errRecordScheme": "仅支持 HTTP(S) 直连媒体流录制",
+  "errRecordPlaylist": "暂不支持 HLS/DASH 分片流录制",
+  "errRecordHttpStatus": "录制请求失败",
+  "errRecordHttpStatusCode": "录制请求失败：HTTP {status}",
+  "@errRecordHttpStatusCode": {
+    "placeholders": { "status": { "type": "int" } }
+  },
+  "errRecordContentType": "响应不是可直接录制的媒体流"
 }

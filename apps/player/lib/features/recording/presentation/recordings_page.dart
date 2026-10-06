@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/widgets/error_view.dart';
 import 'package:zerotv_player/features/recording/application/providers.dart';
+import 'package:zerotv_player/features/shared/presentation/error_localization.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
 /// Lists, plays (best-effort) and deletes local recordings.
@@ -310,7 +311,11 @@ class _RecordingTile extends ConsumerWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                AppLocalizations.of(context).deleteFailed('$e'),
+                AppLocalizations.of(
+                  context,
+                ).deleteFailed(
+                  localizedErrorText(AppLocalizations.of(context), e),
+                ),
               ),
             ),
           );

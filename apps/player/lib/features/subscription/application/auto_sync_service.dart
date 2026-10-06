@@ -140,7 +140,10 @@ class AutoSyncService {
           await _sync(s).timeout(_perSubscriptionTimeout);
         } on TimeoutException {
           failures.add(
-            SyncFailure(s.id, '同步超时（>${_perSubscriptionTimeout.inSeconds}秒）'),
+            SyncFailure(
+              s.id,
+              'sync timeout >${_perSubscriptionTimeout.inSeconds}s',
+            ),
           );
         } on Object catch (e) {
           failures.add(SyncFailure(s.id, '$e'));

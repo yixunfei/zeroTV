@@ -14,6 +14,7 @@ import 'package:zerotv_player/features/detection/application/run_availability_pr
 import 'package:zerotv_player/features/epg/application/epg_guide.dart';
 import 'package:zerotv_player/features/epg/application/providers.dart';
 import 'package:zerotv_player/features/settings/presentation/disclaimer_gate.dart';
+import 'package:zerotv_player/features/shared/presentation/error_localization.dart';
 import 'package:zerotv_player/features/subscription/application/auto_sync_service.dart';
 import 'package:zerotv_player/features/subscription/application/background_sync_controller.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
@@ -255,7 +256,7 @@ class _ChannelBrowserState extends ConsumerState<_ChannelBrowser> {
       // only catches an outright error (e.g. the DB read failed) so it
       // doesn't escape the RefreshIndicator callback.
       messenger.showSnackBar(
-        SnackBar(content: Text(l10n.syncFailed('$e'))),
+        SnackBar(content: Text(l10n.syncFailed(localizedErrorText(l10n, e)))),
       );
     }
   }

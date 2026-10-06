@@ -249,5 +249,23 @@
   "scheduleStateDone": "Done",
   "scheduleStateFailed": "Failed",
   "scheduleStateCancelled": "Cancelled",
-  "scheduledMeta": "{channel} · {time}"
+  "scheduledMeta": "{channel} · {time}",
+  "errFileMissing": "The playlist file does not exist",
+  "errFileReadFailed": "Failed to read the playlist file",
+  "errEmptyBody": "The source returned an empty response",
+  "errNotAPlaylist": "The source did not return a valid M3U playlist",
+  "errAllMirrorsUnreachable": "All mirror addresses are unreachable",
+  "errNoValidChannels": "No valid channels found; existing data was kept",
+  "errPastedNoValidChannels": "No valid channels found",
+  "errEpgEmptyBody": "The EPG source returned an empty response",
+  "errEpgFetchFailed": "Failed to fetch EPG data; check the network or try again later",
+  "errEpgParseFailed": "Failed to parse EPG data; it may not be valid XMLTV",
+  "errRecordScheme": "Only direct HTTP(S) media streams can be recorded",
+  "errRecordPlaylist": "HLS/DASH segmented streams cannot be recorded",
+  "errRecordHttpStatus": "The recording request failed",
+  "errRecordHttpStatusCode": "Recording request failed: HTTP {status}",
+  "@errRecordHttpStatusCode": {
+    "placeholders": { "status": { "type": "int" } }
+  },
+  "errRecordContentType": "The response is not a directly recordable media stream"
 }

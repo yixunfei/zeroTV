@@ -59,11 +59,17 @@ class SyncSubscription {
     final parser = _parser;
     final parsed = await Isolate.run(() => parser.parse(raw));
     if (parsed.channels.isEmpty) {
-      throw const SubscriptionFetchException('订阅中没有有效频道，已保留原有数据');
+      throw const SubscriptionFetchException(
+        SyncErrorReason.noValidChannels,
+        'no valid channels; existing data kept',
+      );
     }
     final cleaned = cleanChannels(subscription, parsed.channels);
     if (cleaned.isEmpty) {
-      throw const SubscriptionFetchException('订阅中没有有效频道，已保留原有数据');
+      throw const SubscriptionFetchException(
+        SyncErrorReason.noValidChannels,
+        'no valid channels after filtering; existing data kept',
+      );
     }
     await _channels.replaceAll(subscription.id, cleaned);
     await _subscriptions.markSynced(subscription.id, DateTime.now());

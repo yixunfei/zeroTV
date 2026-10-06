@@ -16,7 +16,10 @@ class FileSubscriptionSource implements SubscriptionSource {
   Future<RawPlaylist> fetch() async {
     final file = File(path);
     if (!file.existsSync()) {
-      throw SubscriptionFetchException('文件不存在：$path');
+      throw const SubscriptionFetchException(
+        SyncErrorReason.fileMissing,
+        'file not found',
+      );
     }
     try {
       return RawPlaylist(
@@ -26,7 +29,10 @@ class FileSubscriptionSource implements SubscriptionSource {
         originUri: Uri.file(path),
       );
     } on Object catch (e) {
-      throw SubscriptionFetchException('读取文件失败：$e');
+      throw SubscriptionFetchException(
+        SyncErrorReason.fileReadFailed,
+        'read failed: $e',
+      );
     }
   }
 }

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:zerotv_player/features/recording/domain/recording_exception.dart';
+
 /// A capture whose completion includes flushing and closing its output file.
 class RecordingHandle {
   RecordingHandle._({required IOSink sink, required Stream<List<int>> stream})
@@ -92,24 +94,37 @@ class StreamRecorder {
     Map<String, String> headers = const {},
   }) async {
     if (!(url.isScheme('HTTP') || url.isScheme('HTTPS'))) {
-      throw UnsupportedError('仅支持 HTTP(S) 直连媒体流录制');
+      throw const RecordingException(
+        RecordingErrorReason.unsupportedScheme,
+        'only direct HTTP(S) media streams can be recorded',
+      );
     }
     if (RegExp(r'\.(m3u8?|mpd)$', caseSensitive: false).hasMatch(url.path)) {
-      throw UnsupportedError('暂不支持 HLS/DASH 分片流录制');
+      throw const RecordingException(
+        RecordingErrorReason.unsupportedPlaylist,
+        'HLS/DASH segmented streams are not supported',
+      );
     }
     final request = await _client.getUrl(url).timeout(timeout);
     try {
       headers.forEach(request.headers.set);
       final response = await request.close().timeout(timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException('录制请求失败：HTTP ${response.statusCode}', uri: url);
+        throw RecordingException(
+          RecordingErrorReason.httpStatus,
+          'HTTP ${response.statusCode}',
+          statusCode: response.statusCode,
+        );
       }
       final type = response.headers.contentType?.mimeType.toLowerCase() ?? '';
       if (type.startsWith('text/') ||
           type.contains('mpegurl') ||
           type.contains('dash+xml') ||
           type.contains('json')) {
-        throw UnsupportedError('响应不是可直接录制的媒体流：$type');
+        throw RecordingException(
+          RecordingErrorReason.unsupportedContentType,
+          'content type: $type',
+        );
       }
       final file = File(filePath);
       await file.parent.create(recursive: true);

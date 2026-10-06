@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/widgets/error_view.dart';
 import 'package:zerotv_player/features/channel/application/providers.dart';
+import 'package:zerotv_player/features/shared/presentation/error_localization.dart';
 import 'package:zerotv_player/features/subscription/application/providers.dart';
 import 'package:zerotv_player/l10n/generated/app_localizations.dart';
 
@@ -175,7 +176,11 @@ class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
       );
     } on Object catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(l10n.syncFailed('$e'))),
+        SnackBar(
+          content: Text(
+            l10n.syncFailed(localizedErrorText(l10n, e)),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _syncing = false);

@@ -50,7 +50,10 @@ class RemoteSubscriptionSource implements SubscriptionSource {
               pending--;
               if (pending == 0 && !completer.isCompleted) {
                 completer.completeError(
-                  SubscriptionFetchException('所有候选地址均不可达：$lastError'),
+                  SubscriptionFetchException(
+                    SyncErrorReason.allMirrorsUnreachable,
+                    'all candidates unreachable: $lastError',
+                  ),
                 );
               }
             }),
@@ -73,7 +76,10 @@ class RemoteSubscriptionSource implements SubscriptionSource {
     );
     final data = res.data;
     if (data == null || data.isEmpty) {
-      throw SubscriptionFetchException('empty body ($uri)');
+      throw const SubscriptionFetchException(
+        SyncErrorReason.emptyBody,
+        'empty body',
+      );
     }
     final content = decodeTextContent(data);
     // Validate the body looks like an M3U playlist before accepting it:
@@ -81,7 +87,10 @@ class RemoteSubscriptionSource implements SubscriptionSource {
     final looksLikePlaylist =
         content.startsWith('#EXTM3U') || content.contains('#EXTINF');
     if (!looksLikePlaylist) {
-      throw SubscriptionFetchException('not a playlist ($uri)');
+      throw const SubscriptionFetchException(
+        SyncErrorReason.notAPlaylist,
+        'not a playlist',
+      );
     }
     return RawPlaylist(content: content, originUri: uri);
   }
