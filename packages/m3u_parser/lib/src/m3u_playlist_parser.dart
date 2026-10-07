@@ -111,28 +111,18 @@ class M3uPlaylistParser implements PlaylistParser {
   }
 
   String? _streamUrl(String line, Uri? origin) {
-    var candidate = line;
-    final raw = Uri.tryParse(candidate);
-    if (raw == null) return null;
-    if (raw.hasScheme) {
-      // URLs may carry stray spaces (from hand-edited playlists); percent-
-      // encode them instead of dropping the entry. `encodeFull` leaves
-      // existing percent-escapes intact.
-      if (candidate.contains(_invalidUrlChars)) {
-        candidate = Uri.encodeFull(candidate);
-      }
-    } else if (candidate.contains(_invalidUrlChars)) {
+    // Uri parsing escapes stray spaces while preserving existing escapes,
+    // including encoded path separators and signed query parameters.
+    final uri = Uri.tryParse(line);
+    if (uri == null) return null;
+    if (!uri.hasScheme && line.contains(_invalidUrlChars)) {
       // A relative reference carrying whitespace or angle brackets is
       // prose/HTML error text ("Access denied.", "<p>503</p>"), not a
       // path; resolving it against the origin would fabricate channels.
       return null;
     }
-    final uri = Uri.tryParse(candidate);
-    if (uri == null) return null;
     // Only resolve relative paths that belong to a playlist, not HTML/text.
-    if (!uri.hasScheme &&
-        !candidate.contains('/') &&
-        !candidate.contains('.')) {
+    if (!uri.hasScheme && !line.contains('/') && !line.contains('.')) {
       return null;
     }
     final resolved = origin?.resolveUri(uri) ?? uri;

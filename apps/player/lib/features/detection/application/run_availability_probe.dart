@@ -89,6 +89,11 @@ class RunAvailabilityProbe {
         previous.status == ProbeStatus.ok) {
       return false;
     }
+    // Unsupported protocols remain playable. A failed HTTP endpoint must
+    // not hide a channel that still has a UDP/RTSP fallback.
+    if (candidate.isAvailable != previous.isAvailable) {
+      return candidate.isAvailable;
+    }
     final candidateLatency = candidate.latency;
     final previousLatency = previous.latency;
     if (candidateLatency != null && previousLatency == null) return true;

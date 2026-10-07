@@ -138,7 +138,9 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
       if (!mounted) return;
       ref
         ..invalidate(epgProgrammeCountProvider)
-        ..invalidate(nowNextByEpgIdProvider);
+        ..invalidate(nowNextByEpgIdProvider)
+        ..invalidate(epgIndexProvider)
+        ..invalidate(channelGuideProvider);
       if (!mounted) return;
       final l10n = AppLocalizations.of(context);
       final message = feed == null
@@ -166,7 +168,9 @@ class _EpgSettingsPageState extends ConsumerState<EpgSettingsPage> {
     ref
       ..invalidate(epgUrlProvider)
       ..invalidate(epgProgrammeCountProvider)
-      ..invalidate(nowNextByEpgIdProvider);
+      ..invalidate(nowNextByEpgIdProvider)
+      ..invalidate(epgIndexProvider)
+      ..invalidate(channelGuideProvider);
     if (!mounted) return;
     _controller.clear();
     ScaffoldMessenger.of(

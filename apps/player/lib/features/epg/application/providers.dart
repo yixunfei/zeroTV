@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show FutureProviderFamily;
 import 'package:iptv_core/iptv_core.dart';
 import 'package:zerotv_player/core/database/database_provider.dart';
 import 'package:zerotv_player/core/preferences/shared_preferences_provider.dart';
@@ -49,7 +50,9 @@ final refreshEpgProvider = Provider<RefreshEpg>((ref) {
     onRefreshed: () {
       ref
         ..invalidate(epgProgrammeCountProvider)
-        ..invalidate(nowNextByEpgIdProvider);
+        ..invalidate(nowNextByEpgIdProvider)
+        ..invalidate(epgIndexProvider)
+        ..invalidate(channelGuideProvider);
     },
   );
 });
@@ -117,7 +120,7 @@ typedef ChannelGuideQuery = ({String epgId, DateTime day});
 
 /// One full day of programmes for one XMLTV channel, backing the
 /// guide page. The query day is truncated to local midnight.
-final FutureProvider<List<EpgProgram>> Function(ChannelGuideQuery query)
+final FutureProviderFamily<List<EpgProgram>, ChannelGuideQuery>
 channelGuideProvider = FutureProvider.autoDispose
     .family<List<EpgProgram>, ChannelGuideQuery>((
       ref,
@@ -132,8 +135,7 @@ channelGuideProvider = FutureProvider.autoDispose
             start,
             start.add(const Duration(days: 1)),
           );
-    })
-    .call;
+    });
 
 /// Now/next index for resolving programmes against app channels.
 ///

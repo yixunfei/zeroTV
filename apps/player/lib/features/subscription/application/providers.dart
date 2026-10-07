@@ -43,7 +43,7 @@ final dioProvider = Provider<Dio>((ref) {
       connectTimeout: const Duration(seconds: 10),
       sendTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
-      headers: const {'User-Agent': 'zeroTV/1.0.0'},
+      headers: const {'User-Agent': 'zeroTV/1.0.1'},
     ),
   );
   dio.interceptors.add(RetryInterceptor(dio));
