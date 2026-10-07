@@ -116,7 +116,7 @@ class SyncSubscription {
     return [
       for (final c in channels)
         if (!filterAds || !_isAd(c))
-          prefix == null ? c : _withGroupPrefix(c, prefix),
+          if (prefix == null) c else _withGroupPrefix(c, prefix),
     ];
   }
 
